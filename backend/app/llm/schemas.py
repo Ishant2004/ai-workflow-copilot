@@ -1,0 +1,31 @@
+"""Structured output schemas for the planner.
+
+These mirror the domain model (``StepType`` is shared with the ORM) so a generated
+plan maps cleanly onto ``Workflow`` + ``Step`` rows when it's persisted (Step 6).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from app.models.enums import StepType
+
+
+class PlannedStep(BaseModel):
+    """One typed, ordered step the planner proposes."""
+
+    type: StepType
+    name: str
+    description: str
+    # Tool parameters (e.g. {"query": "..."} for web_search). Shape varies by type.
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowPlan(BaseModel):
+    """A structured plan derived from a plain-English task description."""
+
+    title: str
+    summary: str
+    steps: list[PlannedStep]

@@ -13,9 +13,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health
+from app.api.routes import health, planner
 from app.config import Settings, get_settings
 from app.db.session import create_engine_from_settings, create_session_factory
+from app.llm import get_planner
 from app.logging_config import configure_logging
 from app.middleware import RequestIDMiddleware
 
@@ -65,6 +66,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Make this instance's settings available to routes via dependency injection.
     app.state.settings = settings
+    # Build the planner once per app (None if no provider is available).
+    app.state.planner = get_planner(settings)
 
     # Order matters: request-id first so all downstream logs are correlated.
     app.add_middleware(RequestIDMiddleware)
@@ -77,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(planner.router)
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:

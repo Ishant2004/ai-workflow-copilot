@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     db_pool_timeout_seconds: float = 30.0
     db_pool_recycle_seconds: int = 1800
 
+    # --- LLM / planner (Step 5) ---
+    # Provider is swappable behind an interface (see app/llm). "fake" needs no
+    # network/key and is used for local dev and tests.
+    llm_provider: str = "anthropic"  # anthropic | fake
+    anthropic_api_key: str | None = None
+    llm_model: str = "claude-opus-4-8"
+    llm_max_tokens: int = 4096
+    llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 2
+    # Cap concurrent in-flight LLM calls per process so a burst can't exhaust
+    # the pool or blow past provider rate limits (see docs/scalability.md).
+    llm_max_concurrency: int = 8
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

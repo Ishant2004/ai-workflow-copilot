@@ -10,8 +10,13 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def settings() -> Settings:
-    """Default (development) settings with no datastores configured."""
-    return Settings(app_env="development", database_url=None, redis_url=None)
+    """Default (development) settings: no datastores, fake planner (offline)."""
+    return Settings(
+        app_env="development",
+        database_url=None,
+        redis_url=None,
+        llm_provider="fake",
+    )
 
 
 @pytest.fixture

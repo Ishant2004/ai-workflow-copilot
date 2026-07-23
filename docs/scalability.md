@@ -54,6 +54,21 @@ Pool sizing is config-driven (`db_pool_size`, `db_max_overflow`) so that
 `replicas * (pool_size + max_overflow)` stays under Postgres `max_connections`.
 `pool_pre_ping` recycles dropped connections transparently.
 
+## Planner / LLM calls
+
+The planner is isolated behind an interface with concrete reliability/scalability
+controls, all config-driven (no magic numbers):
+
+- **Bounded concurrency** — a per-process semaphore (`llm_max_concurrency`) caps
+  in-flight LLM calls so a burst can't exhaust the worker or overrun provider rate
+  limits (backpressure over collapse).
+- **Timeouts + retries** — `llm_timeout_seconds` and `llm_max_retries` (SDK
+  exponential backoff) keep one slow/failed call from blocking the request pool.
+- **Provider-swappable** — the `fake` provider runs offline (dev/tests) with zero
+  cost/latency; the real provider is a config flip.
+- **Future levers** (noted in the table above): cache identical-intent plans,
+  per-user quotas, and streaming for long outputs.
+
 ## When we revisit this
 
 Each new component's step will note its entry in the table above and any new bottleneck

@@ -17,8 +17,16 @@ app/
 │   ├── base.py        # DeclarativeBase + UUID/Timestamp mixins
 │   └── session.py     # async engine (pool sized from config) + get_db dependency
 ├── models/            # Workflow, Step, Run, StepResult + enums
+├── llm/               # planner: Claude integration behind a swappable interface
+│   ├── base.py        # Planner ABC + PlannerError
+│   ├── schemas.py     # WorkflowPlan / PlannedStep (structured output)
+│   ├── prompts.py     # system prompt + forced tool schema
+│   ├── anthropic_planner.py  # Claude (async, config-driven, concurrency-capped)
+│   ├── fake_planner.py       # deterministic, offline (dev/tests)
+│   └── factory.py     # get_planner(settings)
 └── api/routes/
-    └── health.py      # /health, /health/live, /health/ready
+    ├── health.py      # /health, /health/live, /health/ready
+    └── planner.py     # POST /api/planner/preview
 migrations/            # Alembic env + versioned migrations
 tests/
 ├── conftest.py        # shared fixtures (client, settings, prod_client)
@@ -47,6 +55,28 @@ alembic revision --autogenerate -m "describe change"
 
 In Docker: **dev** applies migrations via the container entrypoint; **prod** runs a
 separate one-off `migrate` service the backend waits on (avoids multi-replica races).
+
+## Planner (Claude integration)
+
+Turns a plain-English task into a structured, typed workflow plan using Claude's
+**tool use** (forced `emit_workflow_plan` tool → validated against `WorkflowPlan`).
+The provider is isolated behind the `Planner` interface (ADR-002) and swappable:
+
+- `LLM_PROVIDER=anthropic` (default) — real Claude; needs `ANTHROPIC_API_KEY`.
+- `LLM_PROVIDER=fake` — deterministic, offline; the dev/test default (no key).
+
+Model, max tokens, timeout, retries, and max concurrency are all config values
+(no magic numbers). The concurrency cap bounds in-flight LLM calls per process.
+
+```bash
+curl -s -X POST http://localhost:8000/api/planner/preview \
+  -H 'Content-Type: application/json' \
+  -d '{"task_description":"Every morning collect AI startup news, summarize it, and Slack me a digest"}'
+```
+
+Returns a `WorkflowPlan` (title, summary, ordered typed steps). No persistence yet
+— that's Step 6. Returns **503** if no provider is configured, **502** if the model
+fails to produce a valid plan.
 
 ## Lint & format
 
