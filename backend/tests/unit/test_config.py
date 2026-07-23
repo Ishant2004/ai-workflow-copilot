@@ -1,7 +1,6 @@
 """Config / environment-separation tests."""
 
 import pytest
-
 from app.config import Settings
 
 pytestmark = pytest.mark.unit

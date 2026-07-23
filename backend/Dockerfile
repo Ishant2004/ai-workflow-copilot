@@ -10,11 +10,16 @@ ENV PYTHONUNBUFFERED=1 \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY app ./app
+COPY migrations ./migrations
+COPY alembic.ini ./alembic.ini
+COPY scripts ./scripts
+RUN chmod +x scripts/entrypoint.sh
 
 # ---------- dev: hot reload, source mounted via compose ----------
 FROM base AS dev
 ENV APP_ENV=development
-# Source is bind-mounted in docker-compose.override.yml; --reload picks up changes.
+# entrypoint applies migrations (single dev replica → no race), then runs the server.
+ENTRYPOINT ["./scripts/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ---------- prod: multiple workers, non-root, no reload ----------

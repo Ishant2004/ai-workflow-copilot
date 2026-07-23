@@ -1,5 +1,6 @@
 """Health / probe endpoint tests."""
 
+import app.api.routes.health as health_module
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -30,7 +31,6 @@ def test_readiness_ready_when_no_deps_configured(client):
 
 def test_readiness_returns_503_when_dep_down(client, monkeypatch):
     """A configured-but-unreachable dependency makes readiness fail with 503."""
-    import app.api.routes.health as health_module
 
     async def fake_checks(**_kwargs):
         return False, {"postgres": "error: connection refused"}

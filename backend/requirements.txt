@@ -7,10 +7,13 @@ uvicorn[standard]==0.51.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
 
-# --- Datastore drivers (readiness checks now; ORM/queue in later steps) ---
+# --- Datastore drivers & ORM ---
 psycopg[binary]==3.2.10
 redis==5.2.1
+sqlalchemy[asyncio]==2.0.51
+alembic==1.14.0
 
-# --- Dev / test ---
+# --- Dev / test / lint ---
 pytest==9.1.1
 httpx==0.28.1
+ruff==0.14.4

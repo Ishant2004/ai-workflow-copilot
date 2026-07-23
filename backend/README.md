@@ -7,19 +7,53 @@ FastAPI service. Stateless and config-driven so it scales horizontally (see
 
 ```
 app/
-├── main.py            # create_app() application factory + entrypoint
+├── main.py            # create_app() factory; opens/closes DB pool in lifespan
 ├── config.py          # Pydantic settings; APP_ENV selects the dotenv layer
 ├── dependencies.py    # DI: per-instance settings from app.state
 ├── logging_config.py  # structured JSON logging + request-id context
 ├── middleware.py      # X-Request-ID correlation middleware
 ├── health_checks.py   # concurrent, timeout-bounded Postgres/Redis probes
+├── db/
+│   ├── base.py        # DeclarativeBase + UUID/Timestamp mixins
+│   └── session.py     # async engine (pool sized from config) + get_db dependency
+├── models/            # Workflow, Step, Run, StepResult + enums
 └── api/routes/
     └── health.py      # /health, /health/live, /health/ready
+migrations/            # Alembic env + versioned migrations
 tests/
 ├── conftest.py        # shared fixtures (client, settings, prod_client)
 ├── unit/              # fast, no external deps
 └── integration/       # require running infra (added in later steps)
 Dockerfile             # multi-stage: base → dev / prod targets
+pyproject.toml         # ruff lint/format config
+```
+
+## Database & migrations
+
+Models (SQLAlchemy 2.0, async): `Workflow` → `Step` (the plan) and `Run` →
+`StepResult` (each execution, for history/observability). Connection pool size,
+overflow, timeout, and recycle are all in config — no magic numbers.
+
+```bash
+# Apply migrations (needs Postgres running; Docker does this automatically)
+alembic upgrade head
+
+# Preview the SQL without a database
+alembic upgrade head --sql
+
+# After changing models, generate a migration
+alembic revision --autogenerate -m "describe change"
+```
+
+In Docker: **dev** applies migrations via the container entrypoint; **prod** runs a
+separate one-off `migrate` service the backend waits on (avoids multi-replica races).
+
+## Lint & format
+
+```bash
+ruff check .        # lint
+ruff check --fix .  # autofix
+ruff format .       # format
 ```
 
 ## Environment separation

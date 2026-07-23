@@ -70,6 +70,17 @@ class Settings(BaseSettings):
     database_url: str | None = None
     redis_url: str | None = None
 
+    # --- Readiness probe ---
+    # Per-dependency timeout so a slow/hung dependency can't block the probe.
+    readiness_timeout_seconds: float = 2.0
+
+    # --- Database connection pool (used from Step 4) ---
+    # Sized per replica; keep (replicas * (pool + overflow)) under Postgres max_connections.
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout_seconds: float = 30.0
+    db_pool_recycle_seconds: int = 1800
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

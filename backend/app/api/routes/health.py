@@ -55,6 +55,7 @@ async def readiness(
     ready, checks = await run_readiness_checks(
         database_url=settings.database_url,
         redis_url=settings.redis_url,
+        timeout_seconds=settings.readiness_timeout_seconds,
     )
     if not ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

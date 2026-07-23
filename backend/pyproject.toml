@@ -1,0 +1,33 @@
+[project]
+name = "workflow-ai-copilot-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Workflow AI Copilot"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort (import ordering)
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PL",   # pylint (incl. magic-number detection)
+]
+ignore = [
+    "PLR2004",  # magic-value-comparison: too noisy in tests/assertions
+    "B008",     # function-call-in-default-arg: FastAPI's `Depends(...)` idiom is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use assert-literals and longer setups freely.
+"tests/*" = ["PLR2004", "PLR0913"]
+
+[tool.ruff.format]
+quote-style = "double"

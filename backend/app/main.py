@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health
 from app.config import Settings, get_settings
+from app.db.session import create_engine_from_settings, create_session_factory
 from app.logging_config import configure_logging
 from app.middleware import RequestIDMiddleware
 
@@ -28,8 +29,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("Starting %s (env=%s)", settings.app_name, settings.app_env)
-        # Startup hooks (DB/Redis pools) will attach here in later steps.
-        yield
+        # Open the DB connection pool on startup, dispose it on shutdown.
+        engine = None
+        if settings.database_url:
+            engine = create_engine_from_settings(settings)
+            app.state.db_engine = engine
+            app.state.session_factory = create_session_factory(engine)
+            logger.info("Database pool initialized")
+        else:
+            app.state.db_engine = None
+            app.state.session_factory = None
+            logger.warning("DATABASE_URL not set — database features disabled")
+        try:
+            yield
+        finally:
+            if engine is not None:
+                await engine.dispose()
+                logger.info("Database pool disposed")
         logger.info("Shutting down %s", settings.app_name)
 
     # In production, don't expose the interactive docs / OpenAPI schema.

@@ -43,6 +43,17 @@ strategy for each. Updated as components land.
   record, allow retry; don't cascade.
 - **Caching** — cache LLM plans for identical intents and search results with TTLs.
 
+## Schema migrations at scale
+
+Migrations run as a **separate one-off job** (`migrate` service / `alembic upgrade head`),
+not inside the server's startup path. Running them per-replica would race when the
+backend scales out. In dev (single replica) the container entrypoint applies them for
+convenience; in prod the backend waits for the migrate job to complete first.
+
+Pool sizing is config-driven (`db_pool_size`, `db_max_overflow`) so that
+`replicas * (pool_size + max_overflow)` stays under Postgres `max_connections`.
+`pool_pre_ping` recycles dropped connections transparently.
+
 ## When we revisit this
 
 Each new component's step will note its entry in the table above and any new bottleneck
