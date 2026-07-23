@@ -48,6 +48,7 @@ class Step(UUIDMixin, TimestampMixin, Base):
     order_index: Mapped[int] = mapped_column(Integer, nullable=False)
     type: Mapped[StepType] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Tool parameters (e.g. search query, recipient). Schema varies by step type.
     config: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 

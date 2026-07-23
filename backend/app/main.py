@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, planner
+from app.api.routes import health, planner, runs, workflows
 from app.config import Settings, get_settings
 from app.db.session import create_engine_from_settings, create_session_factory
 from app.llm import get_planner
@@ -81,6 +81,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(planner.router)
+    app.include_router(workflows.router)
+    app.include_router(runs.router)
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:

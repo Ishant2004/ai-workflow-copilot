@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     db_pool_timeout_seconds: float = 30.0
     db_pool_recycle_seconds: int = 1800
 
+    # --- API pagination ---
+    api_default_page_size: int = 20
+    api_max_page_size: int = 100
+
     # --- LLM / planner (Step 5) ---
     # Provider is swappable behind an interface (see app/llm). "fake" needs no
     # network/key and is used for local dev and tests.

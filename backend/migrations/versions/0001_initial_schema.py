@@ -59,6 +59,7 @@ def upgrade() -> None:
         sa.Column("order_index", sa.Integer(), nullable=False),
         sa.Column("type", postgresql.ENUM(*STEP_TYPE, name="steptype"), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
         sa.Column(
             "config",
             postgresql.JSONB(),

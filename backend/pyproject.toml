@@ -26,8 +26,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests may use assert-literals and longer setups freely.
-"tests/*" = ["PLR2004", "PLR0913"]
+# Tests may use assert-literals, longer setups, and local imports freely.
+"tests/*" = ["PLR2004", "PLR0913", "PLC0415"]
 
 [tool.ruff.format]
 quote-style = "double"

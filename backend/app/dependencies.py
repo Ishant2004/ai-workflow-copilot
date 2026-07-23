@@ -7,10 +7,13 @@ settings it was constructed with.
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
+from app.db.session import get_db
 from app.llm import Planner
+from app.repositories.workflows import SqlAlchemyWorkflowRepository, WorkflowRepository
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -26,3 +29,10 @@ def get_planner_dep(request: Request) -> Planner:
             detail="Planner is not configured (set ANTHROPIC_API_KEY or LLM_PROVIDER=fake).",
         )
     return planner
+
+
+def get_workflow_repo(
+    session: AsyncSession = Depends(get_db),
+) -> WorkflowRepository:
+    """Provide a SQLAlchemy-backed workflow repository (overridden in tests)."""
+    return SqlAlchemyWorkflowRepository(session)

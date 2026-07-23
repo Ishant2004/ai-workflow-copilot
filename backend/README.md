@@ -24,9 +24,14 @@ app/
 │   ├── anthropic_planner.py  # Claude (async, config-driven, concurrency-capped)
 │   ├── fake_planner.py       # deterministic, offline (dev/tests)
 │   └── factory.py     # get_planner(settings)
+├── schemas/           # API DTOs (WorkflowCreate/Update/Out, RunOut, ...)
+├── services/          # pure plan/DTO → ORM mapping (DB-free, unit-tested)
+├── repositories/      # WorkflowRepository interface + SQLAlchemy impl
 └── api/routes/
     ├── health.py      # /health, /health/live, /health/ready
-    └── planner.py     # POST /api/planner/preview
+    ├── planner.py     # POST /api/planner/preview
+    ├── workflows.py   # /api/workflows CRUD + /{id}/runs
+    └── runs.py        # GET /api/runs/{id}
 migrations/            # Alembic env + versioned migrations
 tests/
 ├── conftest.py        # shared fixtures (client, settings, prod_client)
@@ -77,6 +82,33 @@ curl -s -X POST http://localhost:8000/api/planner/preview \
 Returns a `WorkflowPlan` (title, summary, ordered typed steps). No persistence yet
 — that's Step 6. Returns **503** if no provider is configured, **502** if the model
 fails to produce a valid plan.
+
+## Workflows API
+
+Persists planner output as `Workflow` + ordered `Step` rows and exposes CRUD +
+read-only run history. Storage sits behind a `WorkflowRepository` interface, so
+routes are fully tested offline with an in-memory fake (no DB needed).
+
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| POST   | `/api/workflows` | Create from a task (runs planner) or a supplied plan |
+| GET    | `/api/workflows` | List (paginated: `limit`≤`api_max_page_size`, `offset`) |
+| GET    | `/api/workflows/{id}` | Fetch one (with steps) |
+| PATCH  | `/api/workflows/{id}` | Update title/description/status; optionally replace steps |
+| DELETE | `/api/workflows/{id}` | Delete (cascades to steps & runs) |
+| GET    | `/api/workflows/{id}/runs` | List run history for a workflow |
+| GET    | `/api/runs/{id}` | Fetch a run with its step results |
+
+```bash
+# Create and persist a workflow from a plain-English task
+curl -s -X POST http://localhost:8000/api/workflows \
+  -H 'Content-Type: application/json' \
+  -d '{"task_description":"Every morning collect AI startup news and Slack me a digest"}'
+```
+
+Run creation/execution lands in later steps; the run endpoints return history
+(empty until then). Integration tests exercise the real Postgres-backed
+repository and auto-skip when no `DATABASE_URL` is reachable.
 
 ## Lint & format
 
