@@ -13,7 +13,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 |---|------|--------|
 | 1 | Project scaffolding, README, docs, git init | ✅ |
 | 2 | FastAPI backend skeleton (health endpoint, config, settings) | ✅ |
-| 3 | Docker Compose infra (Postgres + pgvector, Redis, backend) | ⬜ |
+| 3 | Docker Compose infra (Postgres + pgvector, Redis, backend) + dev/prod env split + structured tests | ✅ |
 | 4 | Database models & migrations (Workflow, Step, Run) | ⬜ |
 
 ## Phase 1 — MVP (core copilot)

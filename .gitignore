@@ -25,9 +25,13 @@ yarn-debug.log*
 yarn-error.log*
 
 # --- Environment / secrets ---
+# Ignore real env files (may hold secrets)...
 .env
 .env.*
+# ...but keep committed the safe, secret-free templates and dev defaults.
 !.env.example
+!.env.development
+!.env.*.example
 *.pem
 *.key
 

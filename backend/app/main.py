@@ -32,11 +32,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         logger.info("Shutting down %s", settings.app_name)
 
+    # In production, don't expose the interactive docs / OpenAPI schema.
+    docs_url = None if settings.is_production else "/docs"
+    redoc_url = None if settings.is_production else "/redoc"
+    openapi_url = None if settings.is_production else "/openapi.json"
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.version,
+        debug=settings.debug and not settings.is_production,
         lifespan=lifespan,
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
     )
+
+    # Make this instance's settings available to routes via dependency injection.
+    app.state.settings = settings
 
     # Order matters: request-id first so all downstream logs are correlated.
     app.add_middleware(RequestIDMiddleware)
@@ -52,7 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:
-        return {"service": settings.app_name, "docs": "/docs"}
+        return {"service": settings.app_name, "docs": docs_url or "disabled"}
 
     return app
 

@@ -1,0 +1,24 @@
+# Development overrides — auto-loaded by `docker compose up`.
+# Hot reload + source bind-mount for a fast local loop.
+services:
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    env_file:
+      - ./backend/.env.development
+    environment:
+      APP_ENV: development
+    volumes:
+      # Live-reload the app on source changes (no rebuild needed).
+      - ./backend/app:/app/app
+    ports:
+      - "8000:8000"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"

@@ -2,15 +2,17 @@
 
 Separate liveness and readiness endpoints so an orchestrator (ECS/Kubernetes) can
 restart a hung replica (liveness) without routing traffic to a replica that isn't
-ready yet (readiness). Readiness will later check downstream deps (DB, Redis).
+ready yet (readiness). Readiness checks downstream deps (Postgres, Redis).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.config import Settings
+from app.dependencies import get_settings_dep
+from app.health_checks import run_readiness_checks
 
 router = APIRouter(tags=["health"])
 
@@ -23,9 +25,8 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+def health(settings: Settings = Depends(get_settings_dep)) -> HealthResponse:
     """Overall service health and basic identity."""
-    settings = get_settings()
     return HealthResponse(
         status="ok",
         app=settings.app_name,
@@ -41,10 +42,20 @@ def liveness() -> dict[str, str]:
 
 
 @router.get("/health/ready")
-def readiness() -> dict[str, str]:
+async def readiness(
+    response: Response,
+    settings: Settings = Depends(get_settings_dep),
+) -> dict[str, object]:
     """Readiness: safe to receive traffic.
 
-    Currently trivially ready; later steps add checks for Postgres and Redis so a
-    replica only accepts traffic once its dependencies are reachable.
+    Checks each *configured* dependency (Postgres, Redis) concurrently with a short
+    timeout. Returns 503 if any configured dependency is down so the load balancer
+    stops routing traffic to this replica.
     """
-    return {"status": "ready"}
+    ready, checks = await run_readiness_checks(
+        database_url=settings.database_url,
+        redis_url=settings.redis_url,
+    )
+    if not ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return {"status": "ready" if ready else "not_ready", "checks": checks}

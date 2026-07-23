@@ -8,30 +8,62 @@ FastAPI service. Stateless and config-driven so it scales horizontally (see
 ```
 app/
 ├── main.py            # create_app() application factory + entrypoint
-├── config.py          # Pydantic settings from environment (12-factor)
+├── config.py          # Pydantic settings; APP_ENV selects the dotenv layer
+├── dependencies.py    # DI: per-instance settings from app.state
 ├── logging_config.py  # structured JSON logging + request-id context
 ├── middleware.py      # X-Request-ID correlation middleware
+├── health_checks.py   # concurrent, timeout-bounded Postgres/Redis probes
 └── api/routes/
     └── health.py      # /health, /health/live, /health/ready
 tests/
-└── test_health.py     # smoke tests
+├── conftest.py        # shared fixtures (client, settings, prod_client)
+├── unit/              # fast, no external deps
+└── integration/       # require running infra (added in later steps)
+Dockerfile             # multi-stage: base → dev / prod targets
 ```
 
-## Run locally
+## Environment separation
+
+Config layers load lowest-priority first:
+
+```
+.env                 # shared / local defaults
+.env.<APP_ENV>       # per-environment overrides (.env.development committed; prod injected)
+real env vars        # highest priority (Docker/ECS/CI)
+```
+
+`APP_ENV` (`development` | `staging` | `production`) picks the overlay. In
+**production**, interactive docs/OpenAPI are disabled and the container runs as a
+non-root user with multiple workers.
+
+- Dev defaults: [.env.development](.env.development) (committed, secret-free)
+- Prod template: [.env.production.example](.env.production.example) (copy → inject real secrets out-of-repo)
+
+## Run with Docker Compose (recommended)
+
+```bash
+# Dev: hot reload, Postgres+pgvector, Redis (auto-loads docker-compose.override.yml)
+docker compose up --build
+```
+
+- API docs: http://localhost:8000/docs
+- Readiness (checks DB + Redis): http://localhost:8000/health/ready
+
+```bash
+# Prod-like: built image, 4 workers, non-root, no reload
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+## Run without Docker
 
 ```bash
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then:
-- API docs (Swagger): http://localhost:8000/docs
-- Health: http://localhost:8000/health
-
-Scale out with multiple workers (each process is independent, no shared state):
+Scale out (independent, stateless processes):
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
@@ -41,12 +73,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ```bash
 source .venv/bin/activate
-pytest -q
+pytest              # all
+pytest -m unit      # fast unit tests only
 ```
 
 ## Notes
 
-- **Python 3.12–3.14** supported (deps pinned to versions with 3.14 wheels).
-- **Endpoints:** `/health` (identity + status), `/health/live` (liveness probe),
-  `/health/ready` (readiness probe — will check DB/Redis in later steps).
+- **Python 3.12–3.14** supported (deps pinned to versions with 3.14 wheels;
+  Docker image pins 3.12).
+- **Probes:** `/health` (identity), `/health/live` (liveness), `/health/ready`
+  (readiness — returns 503 if a *configured* dependency is unreachable).
 - **Config:** all via env vars — see [.env.example](.env.example).
