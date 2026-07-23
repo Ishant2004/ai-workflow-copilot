@@ -46,6 +46,7 @@ See [docs/decisions.md](docs/decisions.md) for why each choice was made.
 
 - [Roadmap](docs/roadmap.md) — the step-by-step build plan (we commit after each step).
 - [Architecture](docs/architecture.md) — system design and data flow.
+- [Scalability](docs/scalability.md) — per-component scaling strategy (a design constraint, not an afterthought).
 - [Mind map](docs/mind-map.md) — how the concepts connect.
 - [Decision records](docs/decisions.md) — key technical choices and their rationale.
 

@@ -1,0 +1,50 @@
+# Scalability
+
+Scalability is a **per-component design constraint**, not a later optimization. Every
+component we add is reviewed against the concerns below, and this file records the
+strategy for each. Updated as components land.
+
+## Guiding principles
+
+1. **Stateless services scale horizontally.** The API and workers hold no in-memory
+   session state; anything durable lives in Postgres, Redis, or S3. Add replicas
+   behind a load balancer to scale out.
+2. **Push slow work to the queue.** HTTP requests stay fast; LLM calls, scraping, and
+   summarization run async via Celery workers that scale independently of the API.
+3. **Config via environment.** No hardcoded hosts/secrets — 12-factor config so the
+   same image runs from laptop to ECS with different replica counts.
+4. **Bounded resource use.** Timeouts, retries with backoff, and rate limits on every
+   external call (LLM, search, scrape) so one slow dependency can't exhaust the pool.
+5. **Observability first.** Structured logs, request IDs, and per-step run records so
+   bottlenecks are measurable before we scale them.
+6. **Backpressure over collapse.** Queues have max lengths; APIs return 429/503 rather
+   than falling over under load.
+
+## Per-component strategy
+
+| Component | Scaling axis | Strategy | Bottleneck watch |
+|-----------|-------------|----------|------------------|
+| **Frontend (Next.js)** | Horizontal / CDN | Static assets on CDN, SSR stateless, cache-friendly | N/A (client-heavy) |
+| **API (FastAPI)** | Horizontal | Stateless, async I/O, multiple Uvicorn workers behind LB; autoscale on CPU/RPS | DB connections, event-loop blocking |
+| **Planner (Claude)** | Provider + concurrency | Cap concurrent LLM calls, retries w/ backoff, cache identical prompts, stream responses | Token latency, rate limits, cost |
+| **Orchestrator/Workers (Celery)** | Horizontal | Scale worker replicas by queue depth; separate queues per step type; idempotent tasks | Long tasks starving queue |
+| **Postgres + pgvector** | Vertical + read replicas | Connection pooling (PgBouncer), indexes, read replicas for heavy reads; partition runs by time | Write throughput, vector index size |
+| **Redis (broker/cache)** | Vertical + cluster | Separate broker vs cache; eviction policy; Redis Cluster if needed | Memory, single-thread hotspots |
+| **S3 (storage)** | Effectively unlimited | Offload large artifacts/uploads; presigned URLs; lifecycle rules | Egress cost |
+| **Scheduler (Celery Beat)** | Single + failover | One active scheduler; distributed lock to prevent duplicate triggers | Single point — needs HA |
+
+## Cross-cutting concerns
+
+- **Connection pooling** — bounded DB/Redis pools sized to replica count so we don't
+  exhaust Postgres `max_connections` as the API scales out.
+- **Rate limiting & quotas** — per-user and global caps on LLM/tool usage (cost + fairness).
+- **Idempotency** — every task/run is safe to retry; steps key off run + step IDs.
+- **Graceful degradation** — if the LLM or a tool is down, fail the step, keep the run
+  record, allow retry; don't cascade.
+- **Caching** — cache LLM plans for identical intents and search results with TTLs.
+
+## When we revisit this
+
+Each new component's step will note its entry in the table above and any new bottleneck
+it introduces. See [architecture.md](architecture.md) for the component map and
+[decisions.md](decisions.md) for the infra choices these strategies build on.
