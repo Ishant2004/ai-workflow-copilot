@@ -118,6 +118,25 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     email_from: str | None = None
 
+    # --- Queue & scheduling (Step 12) ---
+    # When true, POST /runs enqueues a Celery task instead of executing inline.
+    run_async: bool = False
+    # Broker/result backend; default to REDIS_URL when unset.
+    celery_broker_url: str | None = None
+    celery_result_backend: str | None = None
+    # Run tasks inline in-process (no worker) — used by tests and simple dev.
+    celery_task_always_eager: bool = False
+    # Beat: how often the scheduler checks which workflows are due.
+    beat_dispatch_interval_seconds: float = 60.0
+
+    @property
+    def broker_url(self) -> str | None:
+        return self.celery_broker_url or self.redis_url
+
+    @property
+    def result_backend(self) -> str | None:
+        return self.celery_result_backend or self.redis_url
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

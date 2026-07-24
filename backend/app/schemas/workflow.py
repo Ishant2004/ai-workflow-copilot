@@ -49,6 +49,7 @@ class WorkflowUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, min_length=1, max_length=4000)
     status: WorkflowStatus | None = None
+    schedule_cron: str | None = Field(default=None, max_length=255)
     # When provided, fully replaces the workflow's steps (order = list order).
     steps: list[StepIn] | None = None
 
@@ -60,6 +61,7 @@ class WorkflowOut(BaseModel):
     title: str
     description: str
     status: WorkflowStatus
+    schedule_cron: str | None = None
     created_at: datetime
     updated_at: datetime
     steps: list[StepOut]

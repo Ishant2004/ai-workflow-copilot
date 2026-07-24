@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.config import Settings
 from app.dependencies import (
@@ -20,6 +20,8 @@ from app.dependencies import (
 )
 from app.execution.executor import WorkflowExecutor
 from app.llm import Planner, PlannerError
+from app.models.enums import RunStatus
+from app.models.run import Run
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import (
     RunOut,
@@ -29,6 +31,7 @@ from app.schemas.workflow import (
     WorkflowUpdate,
 )
 from app.services.workflows import workflow_from_plan
+from app.worker import tasks
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 
@@ -84,13 +87,7 @@ async def update_workflow(
     body: WorkflowUpdate,
     repo: WorkflowRepository = Depends(get_workflow_repo),
 ) -> WorkflowOut:
-    workflow = await repo.update(
-        workflow_id,
-        title=body.title,
-        description=body.description,
-        status=body.status,
-        steps=body.steps,
-    )
+    workflow = await repo.update(workflow_id, body)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
     return WorkflowOut.model_validate(workflow)
@@ -123,18 +120,27 @@ async def list_workflow_runs(
 )
 async def run_workflow(
     workflow_id: UUID,
+    response: Response,
     repo: WorkflowRepository = Depends(get_workflow_repo),
     executor: WorkflowExecutor = Depends(get_executor_dep),
     settings: Settings = Depends(get_settings_dep),
 ) -> RunOut:
-    """Execute a workflow now (synchronous) and persist the run + step results.
+    """Execute a workflow, persisting the run + step results.
 
     Pauses at ``awaiting_review`` before side-effecting steps when review is
-    enabled. Async execution via a queue lands in Step 12.
+    enabled. With ``RUN_ASYNC=true``, enqueues a Celery task and returns a pending
+    run (202); otherwise executes inline (201).
     """
     workflow = await repo.get(workflow_id)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    if settings.run_async:
+        pending = await repo.create_run(Run(workflow_id=workflow_id, status=RunStatus.pending))
+        tasks.execute_run.delay(str(pending.id))
+        response.status_code = status.HTTP_202_ACCEPTED
+        return RunOut.model_validate(pending)
+
     run = await executor.run(workflow, require_review=settings.require_review)
     saved = await repo.create_run(run)
     return RunOut.model_validate(saved)

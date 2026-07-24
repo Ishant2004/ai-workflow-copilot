@@ -44,14 +44,30 @@ class WorkflowExecutor:
         self._timeout = timeout_seconds
 
     async def run(self, workflow: Workflow, *, require_review: bool = True) -> Run:
-        """Execute from the start, pausing before the first side-effecting step."""
-        run = Run(
-            workflow_id=workflow.id,
-            status=RunStatus.running,
-            started_at=_now(),
-        )
+        """Create a fresh Run and execute it (synchronous path)."""
+        run = Run(workflow_id=workflow.id, status=RunStatus.pending)
         run.step_results = []
-        await self._execute(workflow, run, context={}, start_index=0, require_review=require_review)
+        await self.execute_run(workflow, run, require_review=require_review)
+        return run
+
+    async def execute_run(
+        self, workflow: Workflow, run: Run, *, require_review: bool = True
+    ) -> Run:
+        """Execute an existing (pending) run from the start.
+
+        Used by the async worker: the run is persisted first, then executed.
+        """
+        if run.step_results is None:
+            run.step_results = []
+        run.status = RunStatus.running
+        run.started_at = _now()
+        await self._execute(
+            workflow,
+            run,
+            context={},
+            start_index=len(run.step_results),
+            require_review=require_review,
+        )
         return run
 
     async def resume(self, workflow: Workflow, run: Run) -> Run:

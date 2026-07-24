@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.models.enums import WorkflowStatus
 from app.models.run import Run
 from app.models.workflow import Workflow
-from app.schemas.workflow import StepIn
+from app.schemas.workflow import WorkflowUpdate
 from app.services.workflows import steps_from_input
 
 
@@ -32,15 +32,11 @@ class WorkflowRepository(abc.ABC):
     async def list(self, *, limit: int, offset: int) -> tuple[list[Workflow], int]: ...
 
     @abc.abstractmethod
-    async def update(
-        self,
-        workflow_id: UUID,
-        *,
-        title: str | None = None,
-        description: str | None = None,
-        status: WorkflowStatus | None = None,
-        steps: list[StepIn] | None = None,
-    ) -> Workflow | None: ...
+    async def update(self, workflow_id: UUID, patch: WorkflowUpdate) -> Workflow | None: ...
+
+    @abc.abstractmethod
+    async def list_scheduled(self) -> list[Workflow]:
+        """Active workflows that have a schedule_cron set."""
 
     @abc.abstractmethod
     async def delete(self, workflow_id: UUID) -> bool: ...
@@ -90,29 +86,34 @@ class SqlAlchemyWorkflowRepository(WorkflowRepository):
         items = list((await self._session.execute(stmt)).scalars().all())
         return items, total
 
-    async def update(
-        self,
-        workflow_id: UUID,
-        *,
-        title: str | None = None,
-        description: str | None = None,
-        status: WorkflowStatus | None = None,
-        steps: list[StepIn] | None = None,
-    ) -> Workflow | None:
+    async def update(self, workflow_id: UUID, patch: WorkflowUpdate) -> Workflow | None:
         workflow = await self.get(workflow_id)
         if workflow is None:
             return None
-        if title is not None:
-            workflow.title = title
-        if description is not None:
-            workflow.description = description
-        if status is not None:
-            workflow.status = status
-        if steps is not None:
+        if patch.title is not None:
+            workflow.title = patch.title
+        if patch.description is not None:
+            workflow.description = patch.description
+        if patch.status is not None:
+            workflow.status = patch.status
+        if patch.schedule_cron is not None:
+            workflow.schedule_cron = patch.schedule_cron
+        if patch.steps is not None:
             # Replace the collection; cascade delete-orphan removes the old steps.
-            workflow.steps = steps_from_input(steps)
+            workflow.steps = steps_from_input(patch.steps)
         await self._session.commit()
         return await self.get(workflow_id)
+
+    async def list_scheduled(self) -> list[Workflow]:
+        stmt = (
+            select(Workflow)
+            .where(
+                Workflow.status == WorkflowStatus.active,
+                Workflow.schedule_cron.is_not(None),
+            )
+            .options(selectinload(Workflow.steps))
+        )
+        return list((await self._session.execute(stmt)).scalars().all())
 
     async def delete(self, workflow_id: UUID) -> bool:
         workflow = await self._session.get(Workflow, workflow_id)

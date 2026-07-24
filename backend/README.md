@@ -32,6 +32,10 @@ app/
 │   └── registry.py    # build_tool_registry(settings)
 ├── execution/
 │   └── executor.py    # WorkflowExecutor: runs steps → Run + StepResults
+├── worker/            # Celery: async run execution + cron scheduling
+│   ├── celery_app.py  # Celery app + beat schedule
+│   ├── tasks.py       # execute_run, dispatch_due_workflows
+│   └── scheduling.py  # cron is_due / due_workflows / dispatch_due (pure)
 ├── schemas/           # API DTOs (WorkflowCreate/Update/Out, RunOut, ...)
 ├── services/          # pure plan/DTO → ORM mapping (DB-free, unit-tested)
 ├── repositories/      # WorkflowRepository interface + SQLAlchemy impl
@@ -157,6 +161,27 @@ The `notify_slack` / `notify_email` steps deliver the reviewed summary. Under
 Anything not configured falls back to the simulated notifier, so a run still
 completes. These run only *after* approval, so nothing is sent without review.
 Keep webhook URLs and SMTP passwords in `.env` (git-ignored), never in tracked files.
+
+## Queue & scheduling (Celery + Redis)
+
+With `RUN_ASYNC=true`, `POST /runs` enqueues a Celery task and returns a **pending**
+run (202); a worker executes it off the request path and updates the run (poll
+`GET /api/runs/{id}`). Default (`false`) executes inline (201).
+
+Workflows with `status=active` and a `schedule_cron` are fired by **Celery Beat**:
+a dispatcher runs every `BEAT_DISPATCH_INTERVAL_SECONDS`, finds due workflows
+(via cron), creates a run, and enqueues it. This covers the "every morning" use case.
+
+```bash
+# worker (executes runs)
+celery -A app.worker.celery_app worker -Q copilot --loglevel=info
+# beat (fires schedules)
+celery -A app.worker.celery_app beat --loglevel=info
+```
+
+`docker compose up` starts `worker` and `beat` alongside the API (with
+`RUN_ASYNC=true`). For tests/simple dev, `CELERY_TASK_ALWAYS_EAGER=true` runs tasks
+inline without a worker.
 
 ## Lint & format
 

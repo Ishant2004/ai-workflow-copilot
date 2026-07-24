@@ -27,7 +27,9 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 | 9 | Tool execution: web search + summarization + run executor | ✅ |
 | 10 | Approve / edit / reject workflow results (human-in-the-loop, backend) | ✅ |
 | 11 | Output actions: Slack (webhook) / email (SMTP) delivery | ✅ |
-| 12 | Queue + scheduling (Celery + Redis) | ⬜ |
+| 12 | Queue + scheduling (Celery + Redis) — async runs + cron dispatch | ✅ |
+
+**🎉 Phase 1 (MVP) complete.**
 
 ## Phase 2 — Grounding & UX
 

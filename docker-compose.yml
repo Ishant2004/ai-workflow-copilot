@@ -41,6 +41,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
       REDIS_URL: redis://redis:6379/0
+      # A worker is running, so the API enqueues runs instead of executing inline.
+      RUN_ASYNC: "true"
     healthcheck:
       test:
         - CMD
@@ -51,6 +53,34 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  # Celery worker: executes queued workflow runs off the request path.
+  worker:
+    build:
+      context: ./backend
+    entrypoint: []
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info", "-Q", "copilot"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
+      REDIS_URL: redis://redis:6379/0
+
+  # Celery Beat: fires scheduled workflows (cron) by enqueuing runs.
+  beat:
+    build:
+      context: ./backend
+    entrypoint: []
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
+      REDIS_URL: redis://redis:6379/0
 
 volumes:
   pgdata:

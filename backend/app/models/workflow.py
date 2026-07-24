@@ -29,6 +29,8 @@ class Workflow(UUIDMixin, TimestampMixin, Base):
     status: Mapped[WorkflowStatus] = mapped_column(
         default=WorkflowStatus.draft, nullable=False, index=True
     )
+    # Optional cron expression; when set on an active workflow, Beat schedules runs.
+    schedule_cron: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     steps: Mapped[list[Step]] = relationship(
         back_populates="workflow",

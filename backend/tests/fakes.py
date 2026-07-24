@@ -9,7 +9,7 @@ from app.models.enums import WorkflowStatus
 from app.models.run import Run
 from app.models.workflow import Step, Workflow
 from app.repositories.workflows import WorkflowRepository
-from app.schemas.workflow import StepIn
+from app.schemas.workflow import WorkflowUpdate
 from app.services.workflows import steps_from_input
 
 
@@ -44,26 +44,20 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         ordered = sorted(self._workflows.values(), key=lambda w: w.created_at, reverse=True)
         return ordered[offset : offset + limit], len(ordered)
 
-    async def update(
-        self,
-        workflow_id: UUID,
-        *,
-        title: str | None = None,
-        description: str | None = None,
-        status: WorkflowStatus | None = None,
-        steps: list[StepIn] | None = None,
-    ) -> Workflow | None:
+    async def update(self, workflow_id: UUID, patch: WorkflowUpdate) -> Workflow | None:
         workflow = self._workflows.get(workflow_id)
         if workflow is None:
             return None
-        if title is not None:
-            workflow.title = title
-        if description is not None:
-            workflow.description = description
-        if status is not None:
-            workflow.status = status
-        if steps is not None:
-            new_steps = steps_from_input(steps)
+        if patch.title is not None:
+            workflow.title = patch.title
+        if patch.description is not None:
+            workflow.description = patch.description
+        if patch.status is not None:
+            workflow.status = patch.status
+        if patch.schedule_cron is not None:
+            workflow.schedule_cron = patch.schedule_cron
+        if patch.steps is not None:
+            new_steps = steps_from_input(patch.steps)
             for step in new_steps:
                 step.workflow_id = workflow.id
                 _stamp_step(step)
@@ -73,6 +67,13 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     async def delete(self, workflow_id: UUID) -> bool:
         return self._workflows.pop(workflow_id, None) is not None
+
+    async def list_scheduled(self) -> list[Workflow]:
+        return [
+            w
+            for w in self._workflows.values()
+            if w.status is WorkflowStatus.active and w.schedule_cron
+        ]
 
     async def create_run(self, run: Run) -> Run:
         now = datetime.now(UTC)

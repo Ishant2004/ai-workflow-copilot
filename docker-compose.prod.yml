@@ -44,6 +44,28 @@ services:
     restart: unless-stopped
     # No source bind-mount and no --reload in production (image is immutable).
 
+  worker:
+    build:
+      context: ./backend
+      target: prod
+    environment:
+      APP_ENV: production
+    env_file:
+      - path: ./backend/.env.production
+        required: false
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: ./backend
+      target: prod
+    environment:
+      APP_ENV: production
+    env_file:
+      - path: ./backend/.env.production
+        required: false
+    restart: unless-stopped
+
   postgres:
     restart: unless-stopped
 

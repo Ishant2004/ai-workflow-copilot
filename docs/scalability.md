@@ -53,10 +53,16 @@ queue-ready:
   (`tool_timeout_seconds`) so a hung tool can't block the worker.
 - **Everything recorded as a Run** — each step writes a `StepResult` (output/error,
   timings), so runs are listable (history), inspectable, and retriable.
-- **Next (Step 12):** move `POST /runs` onto Celery/Redis so long tool chains run
-  off the request path; the executor already produces a self-contained `Run`, so
-  the move is mechanical. Then add per-tool concurrency caps and retries with
-  backoff (same pattern as the planner).
+- **Done (Step 12):** `POST /runs` enqueues a Celery task (`RUN_ASYNC=true`); a
+  worker executes off the request path and the API stays fast. Workers scale
+  horizontally by queue depth (add replicas); Beat fires cron schedules. Next
+  levers: per-tool concurrency caps, retries with backoff, and separate queues
+  per step type.
+
+**Scheduling at scale:** one Beat process should run (a single scheduler). The
+dispatcher only *enqueues* work — the workers do it — so the scheduler stays light.
+The current cron check is at-least-once within the dispatch window; exactly-once
+scheduling (distributed lock / DB-backed scheduler like RedBeat) is the HA upgrade.
 
 ## Schema migrations at scale
 
