@@ -1,27 +1,28 @@
 import { BackendStatus } from "@/app/components/BackendStatus";
+import { TaskComposer } from "@/app/components/TaskComposer";
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
-      <div className="max-w-2xl space-y-4">
-        <p className="text-sm font-medium uppercase tracking-widest text-black/50 dark:text-white/50">
+    <div className="flex flex-1 flex-col">
+      <header className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
+        <span className="text-sm font-semibold tracking-tight">
           Workflow AI Copilot
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Describe a task. Get a runnable workflow.
-        </h1>
-        <p className="text-lg text-black/70 dark:text-white/70">
-          Type a repetitive task in plain English — the copilot breaks it into
-          steps, runs parts of it, and learns from your feedback.
-        </p>
-      </div>
+        </span>
+        <BackendStatus />
+      </header>
 
-      {/* Placeholder for the task-input experience (Step 8). */}
-      <div className="w-full max-w-xl rounded-xl border border-dashed border-black/15 dark:border-white/20 p-8 text-black/50 dark:text-white/50">
-        Task input &amp; workflow preview arrive in the next step.
-      </div>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-10 px-6 py-12">
+        <div className="max-w-2xl space-y-3 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Describe a task. Get a runnable workflow.
+          </h1>
+          <p className="text-black/70 dark:text-white/70">
+            The copilot breaks your plain-English task into ordered, typed steps.
+          </p>
+        </div>
 
-      <BackendStatus />
-    </main>
+        <TaskComposer />
+      </main>
+    </div>
   );
 }

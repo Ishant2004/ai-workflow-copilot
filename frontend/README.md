@@ -7,15 +7,25 @@ Next.js (App Router) + Tailwind CSS + TypeScript. Talks to the FastAPI backend.
 ```
 app/
 ├── layout.tsx              # root layout + metadata
-├── page.tsx                # landing page (task input arrives in Step 8)
+├── page.tsx                # landing page: header + task composer
 ├── globals.css             # Tailwind v4 entry + theme tokens
 └── components/
-    └── BackendStatus.tsx    # live backend-connectivity indicator (client)
+    ├── BackendStatus.tsx    # live backend-connectivity indicator (client)
+    ├── TaskComposer.tsx     # task input → generate → render → save (client)
+    └── WorkflowPreview.tsx  # renders a plan's ordered, typed steps
 lib/
 ├── config.ts               # runtime config (API base URL from env — no hardcoding)
-└── api.ts                  # typed fetch client + ApiError
+├── constants.ts            # UI constants (task max length, step-type styling)
+└── api.ts                  # typed fetch client + workflow/planner helpers
 tests/                      # Vitest + React Testing Library
 ```
+
+## Task flow
+
+The landing page composer calls the backend: **Generate** → `POST /api/planner/preview`
+renders the ordered steps; **Save workflow** → `POST /api/workflows` persists it
+(reusing the previewed plan to avoid a second LLM call). Backend error details
+(e.g. planner disabled → 503, DB down) surface inline.
 
 ## Prerequisites
 
