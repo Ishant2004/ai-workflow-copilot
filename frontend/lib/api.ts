@@ -54,6 +54,7 @@ export function getHealth(): Promise<Health> {
 export type StepType =
   | "web_search"
   | "scrape"
+  | "retrieve"
   | "summarize"
   | "notify_slack"
   | "notify_email";
@@ -81,6 +82,7 @@ export interface Workflow {
   title: string;
   description: string;
   status: string;
+  schedule_cron?: string | null;
   created_at: string;
   updated_at: string;
   steps: WorkflowStep[];
@@ -102,5 +104,42 @@ export function createWorkflow(
   return apiFetch<Workflow>("/api/workflows", {
     method: "POST",
     body: JSON.stringify({ task_description: taskDescription, plan }),
+  });
+}
+
+export interface WorkflowListResponse {
+  items: Workflow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export function listWorkflows(): Promise<WorkflowListResponse> {
+  return apiFetch<WorkflowListResponse>("/api/workflows");
+}
+
+export function getWorkflow(id: string): Promise<Workflow> {
+  return apiFetch<Workflow>(`/api/workflows/${id}`);
+}
+
+/** A step as edited in the visual editor (no id/order — order is list position). */
+export interface StepInput {
+  type: StepType;
+  name: string;
+  description?: string | null;
+  config: Record<string, unknown>;
+}
+
+export interface WorkflowPatch {
+  title?: string;
+  status?: string;
+  schedule_cron?: string | null;
+  steps?: StepInput[];
+}
+
+export function updateWorkflow(id: string, patch: WorkflowPatch): Promise<Workflow> {
+  return apiFetch<Workflow>(`/api/workflows/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
   });
 }

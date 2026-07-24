@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { WorkflowPreview } from "@/app/components/WorkflowPreview";
@@ -133,7 +134,13 @@ export function TaskComposer() {
             </button>
             {save.kind === "saved" && (
               <span className="text-sm text-green-600 dark:text-green-300">
-                Saved as <span className="font-mono">{save.workflow.id.slice(0, 8)}</span>
+                Saved ·{" "}
+                <Link
+                  href={`/workflows/${save.workflow.id}`}
+                  className="underline underline-offset-2"
+                >
+                  Open in editor
+                </Link>
               </span>
             )}
             {save.kind === "error" && (

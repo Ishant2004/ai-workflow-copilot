@@ -37,7 +37,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 |---|------|--------|
 | 13 | RAG: upload PDFs/docs, embed into pgvector + similarity search | ✅ |
 | 14 | Retrieval in workflows (ground answers in user docs) | ✅ |
-| 15 | Visual workflow editor (drag-and-drop nodes) | ⬜ |
+| 15 | Visual workflow editor (drag-and-drop step nodes) | ✅ |
 | 16 | Retries, structured logging, error handling | ⬜ |
 
 ## Phase 3 — Agents, feedback, deploy

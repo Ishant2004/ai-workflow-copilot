@@ -9,16 +9,32 @@ app/
 ├── layout.tsx              # root layout + metadata
 ├── page.tsx                # landing page: header + task composer
 ├── globals.css             # Tailwind v4 entry + theme tokens
+├── workflows/
+│   ├── page.tsx             # workflows list
+│   └── [id]/page.tsx        # visual editor (loads a workflow by id)
 └── components/
     ├── BackendStatus.tsx    # live backend-connectivity indicator (client)
     ├── TaskComposer.tsx     # task input → generate → render → save (client)
-    └── WorkflowPreview.tsx  # renders a plan's ordered, typed steps
+    ├── WorkflowPreview.tsx  # renders a plan's ordered, typed steps
+    └── workflow/
+        ├── WorkflowEditor.tsx  # drag-reorder step editor + save (PATCH)
+        └── StepNode.tsx        # one sortable, editable step node
 lib/
 ├── config.ts               # runtime config (API base URL from env — no hardcoding)
 ├── constants.ts            # UI constants (task max length, step-type styling)
+├── steps.ts                # pure editor logic: reorder + API conversions
 └── api.ts                  # typed fetch client + workflow/planner helpers
 tests/                      # Vitest + React Testing Library
 ```
+
+## Visual workflow editor
+
+`/workflows` lists saved workflows; `/workflows/[id]` opens a **drag-to-reorder**
+step editor (`@dnd-kit`). Each step is a node with a type picker, editable
+name/description/config (JSON), and drag / up-down / delete controls; the workflow's
+title, status, and cron schedule are editable too. **Save** PATCHes the workflow
+(full step replacement). The pure reorder + validation logic lives in `lib/steps.ts`
+and is unit-tested; the drag layer is a thin wrapper over it.
 
 ## Task flow
 

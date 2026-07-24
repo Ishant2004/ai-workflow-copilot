@@ -17,6 +17,10 @@ export const STEP_TYPE_META: Record<StepType, { label: string; badge: string }> 
     label: "Scrape",
     badge: "bg-purple-500/15 text-purple-600 dark:text-purple-300",
   },
+  retrieve: {
+    label: "Retrieve (docs)",
+    badge: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300",
+  },
   summarize: {
     label: "Summarize",
     badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -30,3 +34,6 @@ export const STEP_TYPE_META: Record<StepType, { label: string; badge: string }> 
     badge: "bg-teal-500/15 text-teal-600 dark:text-teal-300",
   },
 };
+
+/** All step types, in a sensible authoring order (for the editor's type picker). */
+export const STEP_TYPES = Object.keys(STEP_TYPE_META) as StepType[];
