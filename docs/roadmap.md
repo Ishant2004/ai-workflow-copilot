@@ -24,7 +24,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 | 6 | Workflow CRUD API + history storage | ✅ |
 | 7 | Next.js + Tailwind frontend skeleton | ✅ |
 | 8 | Frontend: task input → render generated workflow | ✅ |
-| 9 | Tool execution: web search + summarization | ⬜ |
+| 9 | Tool execution: web search + summarization + run executor | ✅ |
 | 10 | Approve / edit / reject workflow results | ⬜ |
 | 11 | Output actions: Slack / email digest | ⬜ |
 | 12 | Queue + scheduling (Celery + Redis) | ⬜ |

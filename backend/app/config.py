@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     # the pool or blow past provider rate limits (see docs/scalability.md).
     llm_max_concurrency: int = 8
 
+    # --- Tool execution (Step 9) ---
+    # "fake" runs deterministic offline tools (dev/tests). "live" plugs in real
+    # providers where configured (e.g. Claude summarizer), falling back to fake.
+    tools_provider: str = "fake"  # fake | live
+    tool_timeout_seconds: float = 30.0
+    search_max_results: int = 5
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

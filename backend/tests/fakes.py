@@ -24,6 +24,7 @@ def _stamp_step(step: Step) -> Step:
 class InMemoryWorkflowRepository(WorkflowRepository):
     def __init__(self) -> None:
         self._workflows: dict[UUID, Workflow] = {}
+        self._runs: dict[UUID, Run] = {}
 
     async def create(self, workflow: Workflow) -> Workflow:
         now = datetime.now(UTC)
@@ -73,10 +74,24 @@ class InMemoryWorkflowRepository(WorkflowRepository):
     async def delete(self, workflow_id: UUID) -> bool:
         return self._workflows.pop(workflow_id, None) is not None
 
+    async def create_run(self, run: Run) -> Run:
+        now = datetime.now(UTC)
+        run.id = uuid4()
+        run.created_at = now
+        run.updated_at = now
+        for result in run.step_results:
+            result.id = uuid4()
+            result.run_id = run.id
+            result.created_at = now
+            result.updated_at = now
+        self._runs[run.id] = run
+        return run
+
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:
         if workflow_id not in self._workflows:
             return None
-        return []
+        runs = [r for r in self._runs.values() if r.workflow_id == workflow_id]
+        return sorted(runs, key=lambda r: r.created_at, reverse=True)
 
     async def get_run(self, run_id: UUID) -> Run | None:
-        return None
+        return self._runs.get(run_id)

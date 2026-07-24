@@ -24,6 +24,13 @@ app/
 │   ├── anthropic_planner.py  # Claude (async, config-driven, concurrency-capped)
 │   ├── fake_planner.py       # deterministic, offline (dev/tests)
 │   └── factory.py     # get_planner(settings)
+├── tools/             # step execution behind a Tool interface + registry
+│   ├── base.py        # Tool ABC + ToolError
+│   ├── fake.py        # deterministic web_search / summarize / notify (default)
+│   ├── summarize.py   # ClaudeSummarizeTool (live provider example)
+│   └── registry.py    # build_tool_registry(settings)
+├── execution/
+│   └── executor.py    # WorkflowExecutor: runs steps → Run + StepResults
 ├── schemas/           # API DTOs (WorkflowCreate/Update/Out, RunOut, ...)
 ├── services/          # pure plan/DTO → ORM mapping (DB-free, unit-tested)
 ├── repositories/      # WorkflowRepository interface + SQLAlchemy impl
@@ -97,6 +104,7 @@ routes are fully tested offline with an in-memory fake (no DB needed).
 | PATCH  | `/api/workflows/{id}` | Update title/description/status; optionally replace steps |
 | DELETE | `/api/workflows/{id}` | Delete (cascades to steps & runs) |
 | GET    | `/api/workflows/{id}/runs` | List run history for a workflow |
+| POST   | `/api/workflows/{id}/runs` | **Execute** the workflow now; persist the run |
 | GET    | `/api/runs/{id}` | Fetch a run with its step results |
 
 ```bash
@@ -109,6 +117,21 @@ curl -s -X POST http://localhost:8000/api/workflows \
 Run creation/execution lands in later steps; the run endpoints return history
 (empty until then). Integration tests exercise the real Postgres-backed
 repository and auto-skip when no `DATABASE_URL` is reachable.
+
+## Tool execution
+
+`POST /api/workflows/{id}/runs` executes a workflow's steps in order — each step's
+output is threaded into a shared context for downstream steps (search → summarize →
+notify) — and persists a `Run` with one `StepResult` per step (output/error + timings).
+
+Tools sit behind a `Tool` interface + registry, selected by `TOOLS_PROVIDER`:
+
+- `fake` (default) — deterministic, offline tools; no keys/network. Great for dev/tests.
+- `live` — real providers where configured (e.g. the Claude summarizer with a key),
+  falling back to fake for anything not yet wired.
+
+Each tool call is bounded by `TOOL_TIMEOUT_SECONDS`; a failing step stops the run and
+marks it `failed`. Execution is synchronous for now — Step 12 moves it onto a queue.
 
 ## Lint & format
 

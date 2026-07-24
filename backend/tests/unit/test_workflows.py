@@ -132,3 +132,38 @@ def test_list_runs_missing_workflow_404(workflow_client):
 
     resp = workflow_client.get(f"/api/workflows/{uuid.uuid4()}/runs")
     assert resp.status_code == 404
+
+
+# --- run execution (Step 9) ---
+
+
+def test_run_workflow_executes_and_persists(workflow_client):
+    created = _create(workflow_client)  # search → summarize → notify
+    resp = workflow_client.post(f"/api/workflows/{created['id']}/runs")
+    assert resp.status_code == 201, resp.text
+    run = resp.json()
+    assert run["status"] == "succeeded"
+    assert run["workflow_id"] == created["id"]
+    assert len(run["step_results"]) == 3
+    assert all(sr["status"] == "succeeded" for sr in run["step_results"])
+    # the search step produced structured output
+    assert run["step_results"][0]["output"]["count"] >= 1
+
+
+def test_run_then_appears_in_history(workflow_client):
+    created = _create(workflow_client)
+    run = workflow_client.post(f"/api/workflows/{created['id']}/runs").json()
+    # listed under the workflow
+    listed = workflow_client.get(f"/api/workflows/{created['id']}/runs").json()
+    assert [r["id"] for r in listed] == [run["id"]]
+    # fetchable by id
+    fetched = workflow_client.get(f"/api/runs/{run['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == run["id"]
+
+
+def test_run_missing_workflow_404(workflow_client):
+    import uuid
+
+    resp = workflow_client.post(f"/api/workflows/{uuid.uuid4()}/runs")
+    assert resp.status_code == 404

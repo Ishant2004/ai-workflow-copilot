@@ -46,6 +46,9 @@ class WorkflowRepository(abc.ABC):
     async def delete(self, workflow_id: UUID) -> bool: ...
 
     @abc.abstractmethod
+    async def create_run(self, run: Run) -> Run: ...
+
+    @abc.abstractmethod
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:
         """Runs for a workflow, or None if the workflow doesn't exist."""
 
@@ -114,6 +117,12 @@ class SqlAlchemyWorkflowRepository(WorkflowRepository):
         await self._session.delete(workflow)
         await self._session.commit()
         return True
+
+    async def create_run(self, run: Run) -> Run:
+        self._session.add(run)
+        await self._session.commit()
+        # Re-fetch with step_results eagerly loaded for serialization.
+        return await self.get_run(run.id)  # type: ignore[return-value]
 
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:
         workflow = await self._session.get(Workflow, workflow_id)

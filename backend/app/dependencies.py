@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.db.session import get_db
+from app.execution.executor import WorkflowExecutor
 from app.llm import Planner
 from app.repositories.workflows import SqlAlchemyWorkflowRepository, WorkflowRepository
 
@@ -36,3 +37,8 @@ def get_workflow_repo(
 ) -> WorkflowRepository:
     """Provide a SQLAlchemy-backed workflow repository (overridden in tests)."""
     return SqlAlchemyWorkflowRepository(session)
+
+
+def get_executor_dep(request: Request) -> WorkflowExecutor:
+    """Return the app's workflow executor (built once in create_app)."""
+    return request.app.state.executor

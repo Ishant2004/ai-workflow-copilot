@@ -12,7 +12,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.config import Settings
-from app.dependencies import get_planner_dep, get_settings_dep, get_workflow_repo
+from app.dependencies import (
+    get_executor_dep,
+    get_planner_dep,
+    get_settings_dep,
+    get_workflow_repo,
+)
+from app.execution.executor import WorkflowExecutor
 from app.llm import Planner, PlannerError
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import (
@@ -108,3 +114,25 @@ async def list_workflow_runs(
     if runs is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
     return [RunOut.model_validate(r) for r in runs]
+
+
+@router.post(
+    "/{workflow_id}/runs",
+    response_model=RunOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def run_workflow(
+    workflow_id: UUID,
+    repo: WorkflowRepository = Depends(get_workflow_repo),
+    executor: WorkflowExecutor = Depends(get_executor_dep),
+) -> RunOut:
+    """Execute a workflow now (synchronous) and persist the run + step results.
+
+    Async execution via a queue lands in Step 12.
+    """
+    workflow = await repo.get(workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+    run = await executor.run(workflow)
+    saved = await repo.create_run(run)
+    return RunOut.model_validate(saved)

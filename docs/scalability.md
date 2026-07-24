@@ -43,6 +43,21 @@ strategy for each. Updated as components land.
   record, allow retry; don't cascade.
 - **Caching** — cache LLM plans for identical intents and search results with TTLs.
 
+## Tool execution (Step 9)
+
+Runs execute **synchronously** in the request for now, but the design is
+queue-ready:
+
+- **Tools behind an interface + registry** — swap fake/real providers via config
+  (`tools_provider`), no executor changes. Bounds each tool call with a timeout
+  (`tool_timeout_seconds`) so a hung tool can't block the worker.
+- **Everything recorded as a Run** — each step writes a `StepResult` (output/error,
+  timings), so runs are listable (history), inspectable, and retriable.
+- **Next (Step 12):** move `POST /runs` onto Celery/Redis so long tool chains run
+  off the request path; the executor already produces a self-contained `Run`, so
+  the move is mechanical. Then add per-tool concurrency caps and retries with
+  backoff (same pattern as the planner).
+
 ## Schema migrations at scale
 
 Migrations run as a **separate one-off job** (`migrate` service / `alembic upgrade head`),
