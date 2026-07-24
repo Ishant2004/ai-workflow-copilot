@@ -58,6 +58,10 @@ class FakeNotifyTool(Tool):
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
         summarize = context.get(StepType.summarize.value) or {}
         message = summarize.get("summary") if isinstance(summarize, dict) else None
+        if not message:
+            # Fall back to the multi-agent orchestrator's reviewed final digest.
+            orchestrate = context.get(StepType.orchestrate.value) or {}
+            message = orchestrate.get("final") if isinstance(orchestrate, dict) else None
         target = step.config.get("channel") or step.config.get("to") or "default"
         return {
             "delivered": False,

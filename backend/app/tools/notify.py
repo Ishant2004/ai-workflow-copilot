@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 def _message_from_context(step: Step, context: ExecutionContext) -> str:
     summarize = context.get(StepType.summarize.value) or {}
     summary = summarize.get("summary") if isinstance(summarize, dict) else None
+    if not summary:
+        # Fall back to the multi-agent orchestrator's reviewed final digest.
+        orchestrate = context.get(StepType.orchestrate.value) or {}
+        summary = orchestrate.get("final") if isinstance(orchestrate, dict) else None
     return summary or str(step.config.get("message") or step.name)
 
 

@@ -27,6 +27,7 @@ strategy for each. Updated as components land.
 | **Frontend (Next.js)** | Horizontal / CDN | Static assets on CDN, SSR stateless, cache-friendly | N/A (client-heavy) |
 | **API (FastAPI)** | Horizontal | Stateless, async I/O, multiple Uvicorn workers behind LB; autoscale on CPU/RPS | DB connections, event-loop blocking |
 | **Planner (Claude)** | Provider + concurrency | Cap concurrent LLM calls, retries w/ backoff, cache identical prompts, stream responses | Token latency, rate limits, cost |
+| **Agent team (orchestrate)** | Provider + concurrency | Bound review rounds (config), share the LLM concurrency cap, run on workers; fake team offline | Fan-out of LLM calls, cost, latency |
 | **Orchestrator/Workers (Celery)** | Horizontal | Scale worker replicas by queue depth; separate queues per step type; idempotent tasks | Long tasks starving queue |
 | **Postgres + pgvector** | Vertical + read replicas | Connection pooling (PgBouncer), indexes, read replicas for heavy reads; partition runs by time | Write throughput, vector index size |
 | **Redis (broker/cache)** | Vertical + cluster | Separate broker vs cache; eviction policy; Redis Cluster if needed | Memory, single-thread hotspots |
@@ -100,6 +101,26 @@ controls, all config-driven (no magic numbers):
   cost/latency; the real provider is a config flip.
 - **Future levers** (noted in the table above): cache identical-intent plans,
   per-user quotas, and streaming for long outputs.
+
+## Multi-agent orchestration (Step 17)
+
+The `orchestrate` step fans one step into several sequential LLM calls (researcher →
+summarizer → reviewer × N rounds), so it's the most call-intensive unit of work.
+Controls that keep that bounded:
+
+- **Config-driven fan-out** — `agent_review_rounds` caps reviewer passes; each round
+  trades LLM cost/latency for quality, so the fan-out is a knob, not a surprise.
+- **Shared concurrency cap** — the Claude orchestrator uses the same per-process
+  `llm_max_concurrency` semaphore as the planner, so many concurrent orchestrations
+  can't exhaust the worker or overrun provider rate limits (backpressure over collapse).
+- **Runs on the worker** — orchestration executes inside the async run path (Celery),
+  off the request thread, so long agent chains never block the API; scale throughput
+  by adding workers.
+- **Provider-swappable** — the deterministic fake team runs offline at zero
+  cost/latency for dev/tests; live is a config flip. Same interface pattern as every
+  other component, so it inherits the horizontal-scaling story above.
+- **Future levers**: run independent agents in parallel where the pipeline allows,
+  cache research for identical topics, and stream reviewer output for long digests.
 
 ## Reliability & observability (Step 16)
 

@@ -199,6 +199,25 @@ output on them (alongside any `web_search` results). The retriever is built per 
 from the request/worker DB session + embedder and passed to the executor — so a
 workflow can answer from your uploaded documents, not just the open web.
 
+## Multi-agent orchestration (orchestrate step)
+
+An `orchestrate` step runs a small team of role-specialized agents on one topic:
+
+- **researcher** — organizes the raw findings (grounded in any upstream
+  `web_search` / `retrieve` material, or the topic itself);
+- **summarizer** — distills them into a concise draft digest;
+- **reviewer** — critiques and improves the draft. Runs for `AGENT_REVIEW_ROUNDS`
+  rounds (each round is another reviewer pass; more rounds = higher quality but more
+  LLM calls).
+
+The step config takes a `topic` (or `query`); the output records the full agent
+trace (`turns`) plus the reviewer-approved `final` digest, which downstream
+`summarize`/`notify` steps consume. Like every provider here, the orchestrator sits
+behind an interface (`app/agents/`): the deterministic `FakeAgentOrchestrator` runs
+offline by default; the Claude-backed team (`ClaudeAgentOrchestrator`) is selected
+when `TOOLS_PROVIDER=live` and an Anthropic key is set, falling back to the fake
+otherwise so a run always completes.
+
 ## Queue & scheduling (Celery + Redis)
 
 With `RUN_ASYNC=true`, `POST /runs` enqueues a Celery task and returns a **pending**

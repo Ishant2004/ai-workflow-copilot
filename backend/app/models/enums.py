@@ -21,6 +21,7 @@ class StepType(str, enum.Enum):
     scrape = "scrape"
     retrieve = "retrieve"  # RAG: fetch relevant chunks from uploaded documents
     summarize = "summarize"
+    orchestrate = "orchestrate"  # multi-agent: researcher → summarizer → reviewer
     notify_slack = "notify_slack"
     notify_email = "notify_email"
 

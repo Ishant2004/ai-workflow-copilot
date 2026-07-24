@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     # so the user can approve/edit/reject first. Disable for fully-automated runs.
     require_review: bool = True
 
+    # --- Multi-agent orchestration (Step 17) ---
+    # The `orchestrate` step runs a researcher → summarizer → reviewer pipeline.
+    # Each review round has the reviewer critique and improve the current draft;
+    # more rounds trade extra LLM calls (cost/latency) for higher-quality output.
+    agent_review_rounds: int = 1
+
     # --- Output actions / notifications (Step 11) ---
     # Live Slack uses an incoming-webhook URL; live email uses SMTP. When unset,
     # the notify steps fall back to the simulated fake even under TOOLS_PROVIDER=live.

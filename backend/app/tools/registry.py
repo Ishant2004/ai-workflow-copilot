@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import logging
 
+from app.agents import get_orchestrator
 from app.config import Settings
 from app.models.enums import StepType
 from app.tools.base import Tool
 from app.tools.fake import FakeNotifyTool, FakeSummarizeTool, FakeWebSearchTool
+from app.tools.orchestrate import OrchestrateTool
 from app.tools.retrieve import RetrieveTool
 
 logger = logging.getLogger(__name__)
@@ -71,12 +73,16 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
             logger.warning("SMTP not configured; using the simulated email notifier.")
         # A live web-search provider plugs in here once configured.
 
+    # The orchestrator follows the same fake/live selection as the summarizer.
+    orchestrate = OrchestrateTool(get_orchestrator(settings))
+
     return ToolRegistry(
         {
             StepType.web_search: web_search,
             StepType.scrape: web_search,  # reuse search behavior for the scrape stub
             StepType.retrieve: RetrieveTool(default_top_k=settings.rag_top_k),
             StepType.summarize: summarize,
+            StepType.orchestrate: orchestrate,
             StepType.notify_slack: notify_slack,
             StepType.notify_email: notify_email,
         }
