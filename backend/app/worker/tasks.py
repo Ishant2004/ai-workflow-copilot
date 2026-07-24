@@ -53,7 +53,12 @@ async def _execute_run(settings: Settings, run_id: UUID) -> None:
         if workflow is None:
             logger.warning("execute_run: workflow for run %s not found", run_id)
             return
-        executor = WorkflowExecutor(build_tool_registry(settings), settings.tool_timeout_seconds)
+        executor = WorkflowExecutor(
+            build_tool_registry(settings),
+            settings.tool_timeout_seconds,
+            max_retries=settings.step_max_retries,
+            retry_backoff_seconds=settings.step_retry_backoff_seconds,
+        )
         retriever = DocumentRetriever(SqlAlchemyDocumentRepository(session), get_embedder(settings))
         await executor.execute_run(
             workflow, run, require_review=settings.require_review, retriever=retriever

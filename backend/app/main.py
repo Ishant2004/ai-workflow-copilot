@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import documents, health, planner, runs, workflows
 from app.config import Settings, get_settings
@@ -73,7 +74,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.planner = get_planner(settings)
     # Build the tool registry + executor once per app.
     app.state.executor = WorkflowExecutor(
-        build_tool_registry(settings), settings.tool_timeout_seconds
+        build_tool_registry(settings),
+        settings.tool_timeout_seconds,
+        max_retries=settings.step_max_retries,
+        retry_backoff_seconds=settings.step_retry_backoff_seconds,
     )
     # Build the embedder once per app (RAG).
     app.state.embedder = get_embedder(settings)
@@ -97,6 +101,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:
         return {"service": settings.app_name, "docs": docs_url or "disabled"}
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        # Log the full error (with request-id + traceback); return a safe, uniform
+        # body — never leak internals to the client.
+        logger.exception("unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     return app
 

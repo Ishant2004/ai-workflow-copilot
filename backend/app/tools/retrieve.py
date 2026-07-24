@@ -23,11 +23,11 @@ class RetrieveTool(Tool):
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
         query = str(step.config.get("query") or "").strip()
         if not query:
-            raise ToolError("retrieve requires a 'query' in the step config")
+            raise ToolError("retrieve requires a 'query' in the step config", retryable=False)
 
         retriever = context.get(RETRIEVER_CONTEXT_KEY)
         if not isinstance(retriever, Retriever):
-            raise ToolError("retrieval is not available for this run")
+            raise ToolError("retrieval is not available for this run", retryable=False)
 
         top_k = int(step.config.get("top_k") or self._default_top_k)
         chunks = await retriever.retrieve(query, top_k)

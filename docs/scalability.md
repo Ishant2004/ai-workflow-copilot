@@ -101,6 +101,23 @@ controls, all config-driven (no magic numbers):
 - **Future levers** (noted in the table above): cache identical-intent plans,
   per-user quotas, and streaming for long outputs.
 
+## Reliability & observability (Step 16)
+
+Hardening the execution path so failures degrade gracefully instead of cascading:
+
+- **Step retries with backoff** — a transiently-failing step retries up to
+  `step_max_retries` with exponential backoff (`step_retry_backoff_seconds`,
+  `2**attempt`), so a brief provider blip self-heals instead of failing a whole run.
+  Errors flagged non-retryable (bad config, not a transient fault) fail fast — retries
+  are spent only where they can help, not amplifying deterministic failures into load.
+- **Correlated structured logs** — JSON logs carry `request_id` and, within a run,
+  `run_id` + per-step fields. Across many stateless API/worker replicas this is what
+  makes a single run traceable in aggregation, and it's the raw signal for deciding
+  *what* to scale (per-step latency, retry rates).
+- **Uniform error responses** — unhandled exceptions become a safe `500` at the
+  middleware boundary; this keeps clients (and retrying callers/LBs) seeing a
+  predictable contract and never leaks internals under load or in debug mode.
+
 ## When we revisit this
 
 Each new component's step will note its entry in the table above and any new bottleneck

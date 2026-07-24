@@ -19,6 +19,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
+from app.logging_config import run_id_ctx
 from app.models.enums import RunStatus, StepResultStatus, StepType
 from app.models.run import Run, StepResult
 from app.models.workflow import Step, Workflow
@@ -33,17 +34,24 @@ SIDE_EFFECTING_STEP_TYPES: frozenset[StepType] = frozenset(
     {StepType.notify_slack, StepType.notify_email}
 )
 
-_FAILED_EXCEPTIONS = (ToolError, KeyError, TimeoutError)
-
 
 def _now() -> datetime:
     return datetime.now(UTC)
 
 
 class WorkflowExecutor:
-    def __init__(self, registry: ToolRegistry, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        timeout_seconds: float,
+        *,
+        max_retries: int = 0,
+        retry_backoff_seconds: float = 0.0,
+    ) -> None:
         self._registry = registry
         self._timeout = timeout_seconds
+        self._max_retries = max_retries
+        self._retry_backoff = retry_backoff_seconds
 
     async def run(
         self,
@@ -74,13 +82,17 @@ class WorkflowExecutor:
             run.step_results = []
         run.status = RunStatus.running
         run.started_at = _now()
-        await self._execute(
-            workflow,
-            run,
-            context=self._new_context(retriever),
-            start_index=len(run.step_results),
-            require_review=require_review,
-        )
+        token = run_id_ctx.set(str(run.id) if run.id else None)
+        try:
+            await self._execute(
+                workflow,
+                run,
+                context=self._new_context(retriever),
+                start_index=len(run.step_results),
+                require_review=require_review,
+            )
+        finally:
+            run_id_ctx.reset(token)
         return run
 
     async def resume(
@@ -138,17 +150,44 @@ class WorkflowExecutor:
             status=StepResultStatus.running,
             started_at=_now(),
         )
+        log_ctx = {"step": step.name, "step_type": step.type.value}
+        logger.info("step started", extra=log_ctx)
+
         try:
             tool = self._registry.get(step.type)
-            output = await asyncio.wait_for(tool.run(step, context), timeout=self._timeout)
-            result.output = output
-            result.status = StepResultStatus.succeeded
-            context[step.type.value] = output
-        except _FAILED_EXCEPTIONS as exc:
-            logger.warning("step %s failed: %s", step.name, exc)
-            result.status = StepResultStatus.failed
-            result.error = str(exc)
+        except KeyError as exc:
+            return self._fail(result, exc, log_ctx)
+
+        last_error: Exception | None = None
+        for attempt in range(1 + self._max_retries):
+            try:
+                output = await asyncio.wait_for(tool.run(step, context), timeout=self._timeout)
+                result.output = output
+                result.status = StepResultStatus.succeeded
+                context[step.type.value] = output
+                result.finished_at = _now()
+                logger.info("step succeeded", extra={**log_ctx, "attempt": attempt + 1})
+                return result
+            except (ToolError, TimeoutError) as exc:
+                last_error = exc
+                retryable = not (isinstance(exc, ToolError) and not exc.retryable)
+                if not retryable or attempt >= self._max_retries:
+                    break
+                delay = self._retry_backoff * (2**attempt)
+                logger.warning(
+                    "step retry",
+                    extra={**log_ctx, "attempt": attempt + 1, "error": str(exc), "delay": delay},
+                )
+                await asyncio.sleep(delay)
+
+        return self._fail(result, last_error, log_ctx)
+
+    @staticmethod
+    def _fail(result: StepResult, exc: Exception | None, log_ctx: dict) -> StepResult:
+        result.status = StepResultStatus.failed
+        result.error = str(exc) if exc else "unknown error"
         result.finished_at = _now()
+        logger.warning("step failed", extra={**log_ctx, "error": result.error})
         return result
 
     @staticmethod

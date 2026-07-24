@@ -23,7 +23,16 @@ ExecutionContext = dict[str, Any]
 
 
 class ToolError(RuntimeError):
-    """Raised when a tool cannot complete its step."""
+    """Raised when a tool cannot complete its step.
+
+    ``retryable`` marks whether re-attempting could plausibly succeed (transient
+    failures like a network blip) vs a deterministic problem (bad config) where a
+    retry only wastes time.
+    """
+
+    def __init__(self, message: str, *, retryable: bool = True) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class Tool(abc.ABC):

@@ -9,9 +9,24 @@ from app.execution.executor import WorkflowExecutor
 from app.models.enums import RunStatus, StepResultStatus, StepType
 from app.models.workflow import Step, Workflow
 from app.tools import ToolRegistry, build_tool_registry
-from app.tools.base import Tool
+from app.tools.base import Tool, ToolError
 
 pytestmark = pytest.mark.unit
+
+
+class _FlakyTool(Tool):
+    """Fails its first `fail_times` calls, then succeeds."""
+
+    def __init__(self, fail_times: int, *, retryable: bool = True) -> None:
+        self.calls = 0
+        self._fail_times = fail_times
+        self._retryable = retryable
+
+    async def run(self, step, context):
+        self.calls += 1
+        if self.calls <= self._fail_times:
+            raise ToolError("transient", retryable=self._retryable)
+        return {"ok": True}
 
 
 def _workflow(*types: StepType) -> Workflow:
@@ -95,3 +110,48 @@ def test_missing_tool_is_recorded_as_failure():
     executor = WorkflowExecutor(registry, 30.0)
     run = asyncio.run(executor.run(_workflow(StepType.web_search)))
     assert run.status is RunStatus.failed
+
+
+# --- retries (Step 16) ---
+
+
+def _retry_executor(tool: Tool, *, max_retries: int) -> WorkflowExecutor:
+    return WorkflowExecutor(
+        ToolRegistry({StepType.web_search: tool}),
+        30.0,
+        max_retries=max_retries,
+        retry_backoff_seconds=0.0,  # no sleeping in tests
+    )
+
+
+def test_step_retries_transient_failure_then_succeeds():
+    tool = _FlakyTool(fail_times=1)
+    run = asyncio.run(
+        _retry_executor(tool, max_retries=2).run(
+            _workflow(StepType.web_search), require_review=False
+        )
+    )
+    assert run.status is RunStatus.succeeded
+    assert tool.calls == 2  # failed once, succeeded on retry
+
+
+def test_non_retryable_error_is_not_retried():
+    tool = _FlakyTool(fail_times=5, retryable=False)
+    run = asyncio.run(
+        _retry_executor(tool, max_retries=2).run(
+            _workflow(StepType.web_search), require_review=False
+        )
+    )
+    assert run.status is RunStatus.failed
+    assert tool.calls == 1  # non-retryable → single attempt
+
+
+def test_retries_exhausted_marks_failed():
+    tool = _FlakyTool(fail_times=10)
+    run = asyncio.run(
+        _retry_executor(tool, max_retries=2).run(
+            _workflow(StepType.web_search), require_review=False
+        )
+    )
+    assert run.status is RunStatus.failed
+    assert tool.calls == 3  # 1 initial + 2 retries

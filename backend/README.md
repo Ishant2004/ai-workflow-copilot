@@ -220,6 +220,28 @@ celery -A app.worker.celery_app beat --loglevel=info
 `RUN_ASYNC=true`). For tests/simple dev, `CELERY_TASK_ALWAYS_EAGER=true` runs tasks
 inline without a worker.
 
+## Reliability & observability
+
+**Retries with backoff.** A step that fails transiently is retried up to
+`STEP_MAX_RETRIES` times with exponential backoff (`STEP_RETRY_BACKOFF_SECONDS`,
+`2**attempt`). Timeouts and generic tool errors are treated as transient; a
+`ToolError(..., retryable=False)` (e.g. a missing required config field — a bug that
+won't fix itself) fails immediately without wasting retries. Only after retries are
+exhausted is the step (and run) marked `failed`.
+
+**Structured logging.** Logs are single-line JSON (`app/logging_config.py`). Every
+line carries a `request_id`; logs emitted while a run executes also carry its
+`run_id`, and step logs add `step` / `step_type` / `attempt` — so a run can be traced
+end-to-end and filtered by step in aggregation. Any `logger.*(..., extra={...})`
+fields are merged into the JSON.
+
+**Consistent error responses.** Any unhandled exception escaping a route is logged
+with its traceback (correlated by `request_id`) and returned to the client as a
+uniform `500 {"detail": "Internal server error"}` — internals never leak, in any
+environment (this holds even with `debug=true`, since it's enforced in
+`RequestIDMiddleware`, not only the app error handler). Expected errors keep their
+existing shapes (`404`/`502` still use FastAPI's `{"detail": ...}`).
+
 ## Lint & format
 
 ```bash

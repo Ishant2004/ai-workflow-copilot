@@ -20,7 +20,7 @@ class FakeWebSearchTool(Tool):
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
         query = str(step.config.get("query") or "").strip()
         if not query:
-            raise ToolError("web_search requires a 'query' in the step config")
+            raise ToolError("web_search requires a 'query' in the step config", retryable=False)
         results = [
             {
                 "title": f"Result {i + 1} for “{query}”",
