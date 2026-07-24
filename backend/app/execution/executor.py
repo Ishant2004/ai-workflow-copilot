@@ -22,7 +22,9 @@ from datetime import UTC, datetime
 from app.models.enums import RunStatus, StepResultStatus, StepType
 from app.models.run import Run, StepResult
 from app.models.workflow import Step, Workflow
+from app.rag.retriever import Retriever
 from app.tools import ToolError, ToolRegistry
+from app.tools.retrieve import RETRIEVER_CONTEXT_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +45,26 @@ class WorkflowExecutor:
         self._registry = registry
         self._timeout = timeout_seconds
 
-    async def run(self, workflow: Workflow, *, require_review: bool = True) -> Run:
+    async def run(
+        self,
+        workflow: Workflow,
+        *,
+        require_review: bool = True,
+        retriever: Retriever | None = None,
+    ) -> Run:
         """Create a fresh Run and execute it (synchronous path)."""
         run = Run(workflow_id=workflow.id, status=RunStatus.pending)
         run.step_results = []
-        await self.execute_run(workflow, run, require_review=require_review)
+        await self.execute_run(workflow, run, require_review=require_review, retriever=retriever)
         return run
 
     async def execute_run(
-        self, workflow: Workflow, run: Run, *, require_review: bool = True
+        self,
+        workflow: Workflow,
+        run: Run,
+        *,
+        require_review: bool = True,
+        retriever: Retriever | None = None,
     ) -> Run:
         """Execute an existing (pending) run from the start.
 
@@ -64,15 +77,18 @@ class WorkflowExecutor:
         await self._execute(
             workflow,
             run,
-            context={},
+            context=self._new_context(retriever),
             start_index=len(run.step_results),
             require_review=require_review,
         )
         return run
 
-    async def resume(self, workflow: Workflow, run: Run) -> Run:
+    async def resume(
+        self, workflow: Workflow, run: Run, *, retriever: Retriever | None = None
+    ) -> Run:
         """Resume an approved run: execute the remaining steps (no further gating)."""
         context = self._rebuild_context(workflow, run)
+        context.update(self._new_context(retriever))
         start_index = len(run.step_results)
         run.status = RunStatus.running
         run.finished_at = None
@@ -80,6 +96,11 @@ class WorkflowExecutor:
             workflow, run, context=context, start_index=start_index, require_review=False
         )
         return run
+
+    @staticmethod
+    def _new_context(retriever: Retriever | None) -> dict:
+        # The retriever is a runtime capability, not step output — it isn't persisted.
+        return {RETRIEVER_CONTEXT_KEY: retriever} if retriever is not None else {}
 
     # --- internals ---
 

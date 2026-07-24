@@ -34,15 +34,22 @@ class FakeWebSearchTool(Tool):
 
 class FakeSummarizeTool(Tool):
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
+        lines: list[str] = []
+
         search = context.get(StepType.web_search.value) or {}
         results = search.get("results", []) if isinstance(search, dict) else []
-        if results:
-            lines = [f"- {r.get('title', '')}" for r in results]
+        lines += [f"- {r.get('title', '')}" for r in results]
+
+        # Ground on retrieved document chunks when present (RAG).
+        retrieved = context.get(StepType.retrieve.value) or {}
+        chunks = retrieved.get("chunks", []) if isinstance(retrieved, dict) else []
+        lines += [f"- {c.get('content', '')[:80]}" for c in chunks]
+
+        if lines:
             summary = "Summary of findings:\n" + "\n".join(lines)
         else:
-            # No upstream search — summarize whatever the step names.
             summary = f"Summary for: {step.name}"
-        return {"summary": summary, "source_count": len(results)}
+        return {"summary": summary, "source_count": len(results) + len(chunks)}
 
 
 class FakeNotifyTool(Tool):

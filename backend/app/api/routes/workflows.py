@@ -13,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.config import Settings
 from app.dependencies import (
+    get_document_repo,
+    get_embedder_dep,
     get_executor_dep,
     get_planner_dep,
     get_settings_dep,
@@ -22,6 +24,9 @@ from app.execution.executor import WorkflowExecutor
 from app.llm import Planner, PlannerError
 from app.models.enums import RunStatus
 from app.models.run import Run
+from app.rag.embeddings import Embedder
+from app.rag.retriever import DocumentRetriever
+from app.repositories.documents import DocumentRepository
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import (
     RunOut,
@@ -124,6 +129,8 @@ async def run_workflow(
     repo: WorkflowRepository = Depends(get_workflow_repo),
     executor: WorkflowExecutor = Depends(get_executor_dep),
     settings: Settings = Depends(get_settings_dep),
+    document_repo: DocumentRepository = Depends(get_document_repo),
+    embedder: Embedder = Depends(get_embedder_dep),
 ) -> RunOut:
     """Execute a workflow, persisting the run + step results.
 
@@ -141,6 +148,7 @@ async def run_workflow(
         response.status_code = status.HTTP_202_ACCEPTED
         return RunOut.model_validate(pending)
 
-    run = await executor.run(workflow, require_review=settings.require_review)
+    retriever = DocumentRetriever(document_repo, embedder)
+    run = await executor.run(workflow, require_review=settings.require_review, retriever=retriever)
     saved = await repo.create_run(run)
     return RunOut.model_validate(saved)

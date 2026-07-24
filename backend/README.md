@@ -40,6 +40,7 @@ app/
 │   ├── embeddings.py  # Embedder interface + HashingEmbedder (offline default)
 │   ├── chunking.py    # overlapping character chunker
 │   ├── extract.py     # text/PDF → plain text
+│   ├── retriever.py   # DocumentRetriever: query → chunks (grounds workflows)
 │   └── service.py     # ingest_document / search_documents
 ├── schemas/           # API DTOs (WorkflowCreate/Update/Out, RunOut, ...)
 ├── services/          # pure plan/DTO → ORM mapping (DB-free, unit-tested)
@@ -188,8 +189,15 @@ curl -s -X POST http://localhost:8000/api/documents/search \
 ```
 
 Search is **exact** cosine (sequential scan) — correct at MVP scale; an approximate
-index (HNSW) is the scale upgrade. This retrieval primitive grounds workflows in
-Step 14.
+index (HNSW) is the scale upgrade.
+
+### Grounding workflows (retrieve step)
+
+A `retrieve` step type queries the document store during a run and threads the
+matching chunks into the execution context; the `summarize` step then grounds its
+output on them (alongside any `web_search` results). The retriever is built per run
+from the request/worker DB session + embedder and passed to the executor — so a
+workflow can answer from your uploaded documents, not just the open web.
 
 ## Queue & scheduling (Celery + Redis)
 

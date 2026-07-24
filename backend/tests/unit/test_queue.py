@@ -2,12 +2,12 @@
 
 import pytest
 from app.config import Settings
-from app.dependencies import get_workflow_repo
+from app.dependencies import get_document_repo, get_workflow_repo
 from app.main import create_app
 from app.worker import tasks
 from fastapi.testclient import TestClient
 
-from tests.fakes import InMemoryWorkflowRepository
+from tests.fakes import InMemoryDocumentRepository, InMemoryWorkflowRepository
 
 pytestmark = pytest.mark.unit
 
@@ -19,6 +19,7 @@ def test_run_async_enqueues_task_and_returns_pending(monkeypatch):
     repo = InMemoryWorkflowRepository()
     app = create_app(Settings(app_env="development", llm_provider="fake", run_async=True))
     app.dependency_overrides[get_workflow_repo] = lambda: repo
+    app.dependency_overrides[get_document_repo] = lambda: InMemoryDocumentRepository()
     client = TestClient(app)
 
     wf = client.post("/api/workflows", json={"task_description": "collect news"}).json()

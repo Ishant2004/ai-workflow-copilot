@@ -39,7 +39,11 @@ class ClaudeSummarizeTool(Tool):
 
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
         search = context.get(StepType.web_search.value) or {}
-        material = json.dumps(search.get("results", []) if isinstance(search, dict) else [])
+        retrieved = context.get(StepType.retrieve.value) or {}
+        material_items = (search.get("results", []) if isinstance(search, dict) else []) + (
+            retrieved.get("chunks", []) if isinstance(retrieved, dict) else []
+        )
+        material = json.dumps(material_items)
         try:
             response = await self._client.messages.create(
                 model=self._model,
@@ -52,4 +56,4 @@ class ClaudeSummarizeTool(Tool):
             raise ToolError(f"summarization failed: {exc}") from exc
 
         text = "".join(block.text for block in response.content if block.type == "text")
-        return {"summary": text.strip(), "source_count": len(search.get("results", []) or [])}
+        return {"summary": text.strip(), "source_count": len(material_items)}

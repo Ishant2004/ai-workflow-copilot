@@ -12,9 +12,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import get_executor_dep, get_workflow_repo
+from app.dependencies import (
+    get_document_repo,
+    get_embedder_dep,
+    get_executor_dep,
+    get_workflow_repo,
+)
 from app.execution.executor import WorkflowExecutor
 from app.models.enums import RunStatus
+from app.rag.embeddings import Embedder
+from app.rag.retriever import DocumentRetriever
+from app.repositories.documents import DocumentRepository
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import RunOut, StepResultUpdate
 
@@ -67,13 +75,15 @@ async def approve_run(
     run_id: UUID,
     repo: WorkflowRepository = Depends(get_workflow_repo),
     executor: WorkflowExecutor = Depends(get_executor_dep),
+    document_repo: DocumentRepository = Depends(get_document_repo),
+    embedder: Embedder = Depends(get_embedder_dep),
 ) -> RunOut:
     """Approve a paused run: execute the remaining (side-effecting) steps."""
     run = await _get_reviewable_run(run_id, repo)
     workflow = await repo.get(run.workflow_id)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
-    await executor.resume(workflow, run)
+    await executor.resume(workflow, run, retriever=DocumentRetriever(document_repo, embedder))
     saved = await repo.save_run(run)
     return RunOut.model_validate(saved)
 

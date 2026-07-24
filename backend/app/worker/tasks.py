@@ -13,12 +13,15 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 import app.models  # noqa: F401 - register models
 from app.config import Settings, get_settings
 from app.execution.executor import WorkflowExecutor
+from app.rag.embeddings import get_embedder
+from app.rag.retriever import DocumentRetriever
+from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.workflows import SqlAlchemyWorkflowRepository
 from app.tools import build_tool_registry
 from app.worker.celery_app import celery_app
@@ -27,22 +30,21 @@ from app.worker.scheduling import dispatch_due
 logger = logging.getLogger(__name__)
 
 
-async def _with_repo[T](
-    settings: Settings, fn: Callable[[SqlAlchemyWorkflowRepository], Awaitable[T]]
-) -> T:
+async def _with_session[T](settings: Settings, fn: Callable[[AsyncSession], Awaitable[T]]) -> T:
     if not settings.database_url:
         raise RuntimeError("DATABASE_URL is required for worker tasks")
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     try:
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
         async with session_factory() as session:
-            return await fn(SqlAlchemyWorkflowRepository(session))
+            return await fn(session)
     finally:
         await engine.dispose()
 
 
 async def _execute_run(settings: Settings, run_id: UUID) -> None:
-    async def _run(repo: SqlAlchemyWorkflowRepository) -> None:
+    async def _run(session: AsyncSession) -> None:
+        repo = SqlAlchemyWorkflowRepository(session)
         run = await repo.get_run(run_id)
         if run is None:
             logger.warning("execute_run: run %s not found", run_id)
@@ -52,10 +54,13 @@ async def _execute_run(settings: Settings, run_id: UUID) -> None:
             logger.warning("execute_run: workflow for run %s not found", run_id)
             return
         executor = WorkflowExecutor(build_tool_registry(settings), settings.tool_timeout_seconds)
-        await executor.execute_run(workflow, run, require_review=settings.require_review)
+        retriever = DocumentRetriever(SqlAlchemyDocumentRepository(session), get_embedder(settings))
+        await executor.execute_run(
+            workflow, run, require_review=settings.require_review, retriever=retriever
+        )
         await repo.save_run(run)
 
-    await _with_repo(settings, _run)
+    await _with_session(settings, _run)
 
 
 @celery_app.task(name="app.worker.tasks.execute_run")
@@ -64,7 +69,8 @@ def execute_run(run_id: str) -> None:
 
 
 async def _dispatch_due_workflows(settings: Settings) -> list[str]:
-    async def _dispatch(repo: SqlAlchemyWorkflowRepository) -> list[str]:
+    async def _dispatch(session: AsyncSession) -> list[str]:
+        repo = SqlAlchemyWorkflowRepository(session)
         run_ids = await dispatch_due(
             list_scheduled=repo.list_scheduled,
             create_run=repo.create_run,
@@ -74,7 +80,7 @@ async def _dispatch_due_workflows(settings: Settings) -> list[str]:
         )
         return [str(r) for r in run_ids]
 
-    return await _with_repo(settings, _dispatch)
+    return await _with_session(settings, _dispatch)
 
 
 @celery_app.task(name="app.worker.tasks.dispatch_due_workflows")

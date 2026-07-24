@@ -13,6 +13,7 @@ from app.config import Settings
 from app.models.enums import StepType
 from app.tools.base import Tool
 from app.tools.fake import FakeNotifyTool, FakeSummarizeTool, FakeWebSearchTool
+from app.tools.retrieve import RetrieveTool
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
         {
             StepType.web_search: web_search,
             StepType.scrape: web_search,  # reuse search behavior for the scrape stub
+            StepType.retrieve: RetrieveTool(default_top_k=settings.rag_top_k),
             StepType.summarize: summarize,
             StepType.notify_slack: notify_slack,
             StepType.notify_email: notify_email,

@@ -19,6 +19,7 @@ class StepType(str, enum.Enum):
 
     web_search = "web_search"
     scrape = "scrape"
+    retrieve = "retrieve"  # RAG: fetch relevant chunks from uploaded documents
     summarize = "summarize"
     notify_slack = "notify_slack"
     notify_email = "notify_email"

@@ -41,9 +41,11 @@ def workflow_repo() -> InMemoryWorkflowRepository:
 
 @pytest.fixture
 def workflow_client(settings: Settings, workflow_repo: InMemoryWorkflowRepository) -> TestClient:
-    """Client with the workflow repository overridden by an in-memory fake."""
+    """Client with the workflow + document repositories overridden by in-memory fakes."""
     app = create_app(settings)
     app.dependency_overrides[get_workflow_repo] = lambda: workflow_repo
+    # Run execution now builds a document retriever; back it with an empty fake.
+    app.dependency_overrides[get_document_repo] = lambda: InMemoryDocumentRepository()
     return TestClient(app)
 
 
