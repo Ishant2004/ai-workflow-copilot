@@ -75,6 +75,12 @@ class WorkflowList(BaseModel):
 # --- Runs (history; execution lands in later steps) ---
 
 
+class StepResultUpdate(BaseModel):
+    """Edit a step's output during review (before side-effecting steps run)."""
+
+    output: dict[str, Any]
+
+
 class StepResultOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

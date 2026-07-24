@@ -125,14 +125,16 @@ async def run_workflow(
     workflow_id: UUID,
     repo: WorkflowRepository = Depends(get_workflow_repo),
     executor: WorkflowExecutor = Depends(get_executor_dep),
+    settings: Settings = Depends(get_settings_dep),
 ) -> RunOut:
     """Execute a workflow now (synchronous) and persist the run + step results.
 
-    Async execution via a queue lands in Step 12.
+    Pauses at ``awaiting_review`` before side-effecting steps when review is
+    enabled. Async execution via a queue lands in Step 12.
     """
     workflow = await repo.get(workflow_id)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
-    run = await executor.run(workflow)
+    run = await executor.run(workflow, require_review=settings.require_review)
     saved = await repo.create_run(run)
     return RunOut.model_validate(saved)

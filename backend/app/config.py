@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     tools_provider: str = "fake"  # fake | live
     tool_timeout_seconds: float = 30.0
     search_max_results: int = 5
+    # Human-in-the-loop: pause a run before side-effecting steps (Slack/email)
+    # so the user can approve/edit/reject first. Disable for fully-automated runs.
+    require_review: bool = True
 
     @field_validator("cors_origins", mode="before")
     @classmethod

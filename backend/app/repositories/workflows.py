@@ -49,6 +49,10 @@ class WorkflowRepository(abc.ABC):
     async def create_run(self, run: Run) -> Run: ...
 
     @abc.abstractmethod
+    async def save_run(self, run: Run) -> Run:
+        """Persist mutations to an existing run (status, appended step results, edits)."""
+
+    @abc.abstractmethod
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:
         """Runs for a workflow, or None if the workflow doesn't exist."""
 
@@ -122,6 +126,12 @@ class SqlAlchemyWorkflowRepository(WorkflowRepository):
         self._session.add(run)
         await self._session.commit()
         # Re-fetch with step_results eagerly loaded for serialization.
+        return await self.get_run(run.id)  # type: ignore[return-value]
+
+    async def save_run(self, run: Run) -> Run:
+        # `run` is attached (loaded via get_run in this session); commit tracked
+        # changes — status, newly appended step results, and edited outputs.
+        await self._session.commit()
         return await self.get_run(run.id)  # type: ignore[return-value]
 
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:

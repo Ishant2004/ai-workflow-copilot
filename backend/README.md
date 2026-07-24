@@ -106,6 +106,9 @@ routes are fully tested offline with an in-memory fake (no DB needed).
 | GET    | `/api/workflows/{id}/runs` | List run history for a workflow |
 | POST   | `/api/workflows/{id}/runs` | **Execute** the workflow now; persist the run |
 | GET    | `/api/runs/{id}` | Fetch a run with its step results |
+| PATCH  | `/api/runs/{id}/steps/{step_result_id}` | Edit a step's output during review |
+| POST   | `/api/runs/{id}/approve` | Approve a paused run → run remaining steps |
+| POST   | `/api/runs/{id}/reject` | Reject a paused run (no side effects) |
 
 ```bash
 # Create and persist a workflow from a plain-English task
@@ -132,6 +135,14 @@ Tools sit behind a `Tool` interface + registry, selected by `TOOLS_PROVIDER`:
 
 Each tool call is bounded by `TOOL_TIMEOUT_SECONDS`; a failing step stops the run and
 marks it `failed`. Execution is synchronous for now — Step 12 moves it onto a queue.
+
+### Human-in-the-loop review
+
+With `REQUIRE_REVIEW=true` (default), a run **pauses at `awaiting_review`** before the
+first side-effecting step (Slack/email). The produced result can be edited
+(`PATCH …/steps/{id}`), then **approved** (resumes and runs the remaining steps,
+using any edits) or **rejected** (cancels with no side effects). This enforces the
+"nothing side-effecting runs without review" principle.
 
 ## Lint & format
 

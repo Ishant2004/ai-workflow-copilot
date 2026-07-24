@@ -137,16 +137,16 @@ def test_list_runs_missing_workflow_404(workflow_client):
 # --- run execution (Step 9) ---
 
 
-def test_run_workflow_executes_and_persists(workflow_client):
-    created = _create(workflow_client)  # search → summarize → notify
+def test_run_workflow_pauses_for_review_before_side_effects(workflow_client):
+    created = _create(workflow_client)  # search → summarize → notify_slack
     resp = workflow_client.post(f"/api/workflows/{created['id']}/runs")
     assert resp.status_code == 201, resp.text
     run = resp.json()
-    assert run["status"] == "succeeded"
+    # Pauses before the side-effecting notify step.
+    assert run["status"] == "awaiting_review"
     assert run["workflow_id"] == created["id"]
-    assert len(run["step_results"]) == 3
+    assert len(run["step_results"]) == 2  # search + summarize only
     assert all(sr["status"] == "succeeded" for sr in run["step_results"])
-    # the search step produced structured output
     assert run["step_results"][0]["output"]["count"] >= 1
 
 

@@ -87,6 +87,19 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         self._runs[run.id] = run
         return run
 
+    async def save_run(self, run: Run) -> Run:
+        now = datetime.now(UTC)
+        # Stamp any newly appended step results (from resume).
+        for result in run.step_results:
+            if result.id is None:
+                result.id = uuid4()
+                result.run_id = run.id
+                result.created_at = now
+                result.updated_at = now
+        run.updated_at = now
+        self._runs[run.id] = run
+        return run
+
     async def list_runs(self, workflow_id: UUID) -> list[Run] | None:
         if workflow_id not in self._workflows:
             return None

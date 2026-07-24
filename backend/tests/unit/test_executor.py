@@ -28,16 +28,36 @@ def _executor() -> WorkflowExecutor:
     return WorkflowExecutor(build_tool_registry(Settings(tools_provider="fake")), 30.0)
 
 
-def test_run_succeeds_and_threads_context():
+def test_run_succeeds_and_threads_context_without_review():
     wf = _workflow(StepType.web_search, StepType.summarize, StepType.notify_slack)
-    run = asyncio.run(_executor().run(wf))
+    run = asyncio.run(_executor().run(wf, require_review=False))
 
     assert run.status is RunStatus.succeeded
     assert run.started_at and run.finished_at
     assert [r.status for r in run.step_results] == [StepResultStatus.succeeded] * 3
     # summarize consumed the web_search output threaded through context
-    summarize_result = run.step_results[1]
-    assert summarize_result.output["source_count"] >= 1
+    assert run.step_results[1].output["source_count"] >= 1
+
+
+def test_run_pauses_before_side_effecting_step():
+    wf = _workflow(StepType.web_search, StepType.summarize, StepType.notify_slack)
+    run = asyncio.run(_executor().run(wf, require_review=True))
+
+    assert run.status is RunStatus.awaiting_review
+    assert len(run.step_results) == 2  # notify not executed yet
+
+
+def test_resume_runs_remaining_steps_with_edited_context():
+    wf = _workflow(StepType.web_search, StepType.summarize, StepType.notify_slack)
+    executor = _executor()
+    run = asyncio.run(executor.run(wf, require_review=True))
+    # simulate an edit to the summarize output before approval
+    run.step_results[1].output = {"summary": "EDITED"}
+
+    asyncio.run(executor.resume(wf, run))
+    assert run.status is RunStatus.succeeded
+    assert len(run.step_results) == 3
+    assert "EDITED" in run.step_results[2].output["message_preview"]
 
 
 def test_run_stops_on_first_failure():
