@@ -31,7 +31,8 @@ class ToolRegistry:
 def build_tool_registry(settings: Settings) -> ToolRegistry:
     web_search = FakeWebSearchTool(max_results=settings.search_max_results)
     summarize: Tool = FakeSummarizeTool()
-    notify = FakeNotifyTool()
+    notify_slack: Tool = FakeNotifyTool()
+    notify_email: Tool = FakeNotifyTool()
 
     if settings.tools_provider.lower() == "live":
         if settings.anthropic_api_key:
@@ -42,6 +43,31 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
             logger.warning(
                 "TOOLS_PROVIDER=live but ANTHROPIC_API_KEY is unset; using the fake summarizer."
             )
+
+        if settings.slack_webhook_url:
+            from app.tools.notify import LiveSlackNotifyTool  # noqa: PLC0415
+
+            notify_slack = LiveSlackNotifyTool(
+                settings.slack_webhook_url, settings.tool_timeout_seconds
+            )
+        else:
+            logger.warning("SLACK_WEBHOOK_URL unset; using the simulated Slack notifier.")
+
+        if settings.smtp_host and settings.email_from:
+            from app.tools.notify import LiveEmailNotifyTool, SmtpConfig  # noqa: PLC0415
+
+            notify_email = LiveEmailNotifyTool(
+                SmtpConfig(
+                    host=settings.smtp_host,
+                    port=settings.smtp_port,
+                    sender=settings.email_from,
+                    user=settings.smtp_user,
+                    password=settings.smtp_password,
+                ),
+                settings.tool_timeout_seconds,
+            )
+        else:
+            logger.warning("SMTP not configured; using the simulated email notifier.")
         # A live web-search provider plugs in here once configured.
 
     return ToolRegistry(
@@ -49,7 +75,7 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
             StepType.web_search: web_search,
             StepType.scrape: web_search,  # reuse search behavior for the scrape stub
             StepType.summarize: summarize,
-            StepType.notify_slack: notify,
-            StepType.notify_email: notify,
+            StepType.notify_slack: notify_slack,
+            StepType.notify_email: notify_email,
         }
     )

@@ -108,6 +108,16 @@ class Settings(BaseSettings):
     # so the user can approve/edit/reject first. Disable for fully-automated runs.
     require_review: bool = True
 
+    # --- Output actions / notifications (Step 11) ---
+    # Live Slack uses an incoming-webhook URL; live email uses SMTP. When unset,
+    # the notify steps fall back to the simulated fake even under TOOLS_PROVIDER=live.
+    slack_webhook_url: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    email_from: str | None = None
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

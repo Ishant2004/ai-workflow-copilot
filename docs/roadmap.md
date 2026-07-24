@@ -26,7 +26,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 | 8 | Frontend: task input → render generated workflow | ✅ |
 | 9 | Tool execution: web search + summarization + run executor | ✅ |
 | 10 | Approve / edit / reject workflow results (human-in-the-loop, backend) | ✅ |
-| 11 | Output actions: Slack / email digest | ⬜ |
+| 11 | Output actions: Slack (webhook) / email (SMTP) delivery | ✅ |
 | 12 | Queue + scheduling (Celery + Redis) | ⬜ |
 
 ## Phase 2 — Grounding & UX

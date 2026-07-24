@@ -28,6 +28,7 @@ app/
 │   ├── base.py        # Tool ABC + ToolError
 │   ├── fake.py        # deterministic web_search / summarize / notify (default)
 │   ├── summarize.py   # ClaudeSummarizeTool (live provider example)
+│   ├── notify.py      # LiveSlackNotifyTool (webhook) + LiveEmailNotifyTool (SMTP)
 │   └── registry.py    # build_tool_registry(settings)
 ├── execution/
 │   └── executor.py    # WorkflowExecutor: runs steps → Run + StepResults
@@ -143,6 +144,19 @@ first side-effecting step (Slack/email). The produced result can be edited
 (`PATCH …/steps/{id}`), then **approved** (resumes and runs the remaining steps,
 using any edits) or **rejected** (cancels with no side effects). This enforces the
 "nothing side-effecting runs without review" principle.
+
+### Output actions (Slack / email)
+
+The `notify_slack` / `notify_email` steps deliver the reviewed summary. Under
+`TOOLS_PROVIDER=live`:
+
+- **Slack** — set `SLACK_WEBHOOK_URL` (incoming webhook); the tool POSTs the message.
+- **Email** — set `SMTP_HOST` + `EMAIL_FROM` (and `SMTP_USER`/`SMTP_PASSWORD` if the
+  server requires auth); the tool sends via SMTP (STARTTLS).
+
+Anything not configured falls back to the simulated notifier, so a run still
+completes. These run only *after* approval, so nothing is sent without review.
+Keep webhook URLs and SMTP passwords in `.env` (git-ignored), never in tracked files.
 
 ## Lint & format
 
