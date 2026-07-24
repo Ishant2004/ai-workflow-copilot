@@ -22,7 +22,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 |---|------|--------|
 | 5 | Claude integration: intent → structured workflow steps | ✅ |
 | 6 | Workflow CRUD API + history storage | ✅ |
-| 7 | Next.js + Tailwind frontend skeleton | ⬜ |
+| 7 | Next.js + Tailwind frontend skeleton | ✅ |
 | 8 | Frontend: task input → render generated workflow | ⬜ |
 | 9 | Tool execution: web search + summarization | ⬜ |
 | 10 | Approve / edit / reject workflow results | ⬜ |

@@ -57,5 +57,24 @@ for what's done and what's next.
 
 ## Getting started
 
-Setup instructions will be filled in as the backend, frontend, and infra land in
-the coming steps. Track progress in [docs/roadmap.md](docs/roadmap.md).
+**Backend** (FastAPI):
+
+```bash
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000   # http://localhost:8000/docs
+```
+
+**Frontend** (Next.js):
+
+```bash
+cd frontend
+npm install
+npm run dev                                  # http://localhost:3000
+```
+
+With both running, the frontend landing page shows a live "Backend online"
+indicator. See [backend/README.md](backend/README.md) and
+[frontend/README.md](frontend/README.md) for details, and
+[docs/roadmap.md](docs/roadmap.md) for progress.
