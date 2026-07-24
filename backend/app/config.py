@@ -129,6 +129,14 @@ class Settings(BaseSettings):
     # Beat: how often the scheduler checks which workflows are due.
     beat_dispatch_interval_seconds: float = 60.0
 
+    # --- RAG / embeddings (Step 13) ---
+    # Provider is swappable; "fake" is a deterministic offline hashing embedder.
+    # (The embedding dimension is a structural constant — see app/rag/embeddings.py.)
+    embedding_provider: str = "fake"
+    chunk_size: int = 1000  # characters per chunk
+    chunk_overlap: int = 150  # character overlap between consecutive chunks
+    rag_top_k: int = 5  # default number of chunks returned by search
+
     @property
     def broker_url(self) -> str | None:
         return self.celery_broker_url or self.redis_url

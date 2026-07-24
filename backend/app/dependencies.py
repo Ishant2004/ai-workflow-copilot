@@ -14,6 +14,8 @@ from app.config import Settings
 from app.db.session import get_db
 from app.execution.executor import WorkflowExecutor
 from app.llm import Planner
+from app.rag.embeddings import Embedder
+from app.repositories.documents import DocumentRepository, SqlAlchemyDocumentRepository
 from app.repositories.workflows import SqlAlchemyWorkflowRepository, WorkflowRepository
 
 
@@ -42,3 +44,15 @@ def get_workflow_repo(
 def get_executor_dep(request: Request) -> WorkflowExecutor:
     """Return the app's workflow executor (built once in create_app)."""
     return request.app.state.executor
+
+
+def get_document_repo(
+    session: AsyncSession = Depends(get_db),
+) -> DocumentRepository:
+    """Provide a SQLAlchemy-backed document repository (overridden in tests)."""
+    return SqlAlchemyDocumentRepository(session)
+
+
+def get_embedder_dep(request: Request) -> Embedder:
+    """Return the app's embedder (built once in create_app)."""
+    return request.app.state.embedder

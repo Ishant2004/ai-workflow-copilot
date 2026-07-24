@@ -13,13 +13,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, planner, runs, workflows
+from app.api.routes import documents, health, planner, runs, workflows
 from app.config import Settings, get_settings
 from app.db.session import create_engine_from_settings, create_session_factory
 from app.execution.executor import WorkflowExecutor
 from app.llm import get_planner
 from app.logging_config import configure_logging
 from app.middleware import RequestIDMiddleware
+from app.rag.embeddings import get_embedder
 from app.tools import build_tool_registry
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.executor = WorkflowExecutor(
         build_tool_registry(settings), settings.tool_timeout_seconds
     )
+    # Build the embedder once per app (RAG).
+    app.state.embedder = get_embedder(settings)
 
     # Order matters: request-id first so all downstream logs are correlated.
     app.add_middleware(RequestIDMiddleware)
@@ -89,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(planner.router)
     app.include_router(workflows.router)
     app.include_router(runs.router)
+    app.include_router(documents.router)
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:

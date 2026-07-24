@@ -1,13 +1,15 @@
-"""In-memory WorkflowRepository for testing routes without a database."""
+"""In-memory repositories for testing routes without a database."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.models.document import Document, DocumentChunk
 from app.models.enums import WorkflowStatus
 from app.models.run import Run
 from app.models.workflow import Step, Workflow
+from app.repositories.documents import DocumentRepository
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import WorkflowUpdate
 from app.services.workflows import steps_from_input
@@ -109,3 +111,45 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     async def get_run(self, run_id: UUID) -> Run | None:
         return self._runs.get(run_id)
+
+
+def _cosine_distance(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    return 1.0 - dot  # embeddings are unit-normalized, so dot == cosine similarity
+
+
+class InMemoryDocumentRepository(DocumentRepository):
+    def __init__(self) -> None:
+        self._documents: dict[UUID, Document] = {}
+
+    async def create(self, document: Document) -> Document:
+        now = datetime.now(UTC)
+        document.id = uuid4()
+        document.created_at = now
+        document.updated_at = now
+        for chunk in document.chunks:
+            chunk.id = uuid4()
+            chunk.document_id = document.id
+            chunk.created_at = now
+            chunk.updated_at = now
+        self._documents[document.id] = document
+        return document
+
+    async def get(self, document_id: UUID) -> Document | None:
+        return self._documents.get(document_id)
+
+    async def list(self, *, limit: int, offset: int) -> tuple[list[Document], int]:
+        ordered = sorted(self._documents.values(), key=lambda d: d.created_at, reverse=True)
+        return ordered[offset : offset + limit], len(ordered)
+
+    async def delete(self, document_id: UUID) -> bool:
+        return self._documents.pop(document_id, None) is not None
+
+    async def search(self, embedding: list[float], top_k: int) -> list[tuple[DocumentChunk, float]]:
+        scored = [
+            (chunk, _cosine_distance(embedding, chunk.embedding))
+            for doc in self._documents.values()
+            for chunk in doc.chunks
+        ]
+        scored.sort(key=lambda pair: pair[1])
+        return scored[:top_k]

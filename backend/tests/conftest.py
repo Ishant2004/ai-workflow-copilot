@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 from app.config import Settings
-from app.dependencies import get_workflow_repo
+from app.dependencies import get_document_repo, get_workflow_repo
 from app.main import create_app
 from fastapi.testclient import TestClient
 
-from tests.fakes import InMemoryWorkflowRepository
+from tests.fakes import InMemoryDocumentRepository, InMemoryWorkflowRepository
 
 
 @pytest.fixture
@@ -44,4 +44,17 @@ def workflow_client(settings: Settings, workflow_repo: InMemoryWorkflowRepositor
     """Client with the workflow repository overridden by an in-memory fake."""
     app = create_app(settings)
     app.dependency_overrides[get_workflow_repo] = lambda: workflow_repo
+    return TestClient(app)
+
+
+@pytest.fixture
+def document_repo() -> InMemoryDocumentRepository:
+    return InMemoryDocumentRepository()
+
+
+@pytest.fixture
+def document_client(settings: Settings, document_repo: InMemoryDocumentRepository) -> TestClient:
+    """Client with the document repository overridden by an in-memory fake."""
+    app = create_app(settings)
+    app.dependency_overrides[get_document_repo] = lambda: document_repo
     return TestClient(app)

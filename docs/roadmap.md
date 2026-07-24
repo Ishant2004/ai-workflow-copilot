@@ -35,7 +35,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 
 | # | Step | Status |
 |---|------|--------|
-| 13 | RAG: upload PDFs/docs, embed into pgvector | ⬜ |
+| 13 | RAG: upload PDFs/docs, embed into pgvector + similarity search | ✅ |
 | 14 | Retrieval in workflows (ground answers in user docs) | ⬜ |
 | 15 | Visual workflow editor (drag-and-drop nodes) | ⬜ |
 | 16 | Retries, structured logging, error handling | ⬜ |

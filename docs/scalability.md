@@ -64,6 +64,17 @@ dispatcher only *enqueues* work — the workers do it — so the scheduler stays
 The current cron check is at-least-once within the dispatch window; exactly-once
 scheduling (distributed lock / DB-backed scheduler like RedBeat) is the HA upgrade.
 
+## Vector search (RAG, Step 13)
+
+Embeddings live in a pgvector column in the same Postgres — one datastore, per
+ADR-004. Search is **exact cosine** (sequential scan) at MVP scale, which is
+correct and simple. The scale path: add an **HNSW** index (`vector_cosine_ops`)
+for approximate nearest-neighbour — note that an under-tuned IVFFlat index (too
+many `lists` for the row count, low `probes`) can silently return incomplete
+results, so HNSW is the safer default. The embedder is provider-swappable and its
+calls should get the same concurrency cap + timeout treatment as the planner once
+a network provider is wired in.
+
 ## Schema migrations at scale
 
 Migrations run as a **separate one-off job** (`migrate` service / `alembic upgrade head`),

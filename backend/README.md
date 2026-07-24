@@ -36,6 +36,11 @@ app/
 │   ├── celery_app.py  # Celery app + beat schedule
 │   ├── tasks.py       # execute_run, dispatch_due_workflows
 │   └── scheduling.py  # cron is_due / due_workflows / dispatch_due (pure)
+├── rag/               # RAG: embeddings, chunking, extraction, ingest/search
+│   ├── embeddings.py  # Embedder interface + HashingEmbedder (offline default)
+│   ├── chunking.py    # overlapping character chunker
+│   ├── extract.py     # text/PDF → plain text
+│   └── service.py     # ingest_document / search_documents
 ├── schemas/           # API DTOs (WorkflowCreate/Update/Out, RunOut, ...)
 ├── services/          # pure plan/DTO → ORM mapping (DB-free, unit-tested)
 ├── repositories/      # WorkflowRepository interface + SQLAlchemy impl
@@ -161,6 +166,30 @@ The `notify_slack` / `notify_email` steps deliver the reviewed summary. Under
 Anything not configured falls back to the simulated notifier, so a run still
 completes. These run only *after* approval, so nothing is sent without review.
 Keep webhook URLs and SMTP passwords in `.env` (git-ignored), never in tracked files.
+
+## RAG (documents + pgvector)
+
+Upload a document → text is extracted (text/PDF), chunked, embedded, and stored in
+a pgvector column; search embeds the query and returns the nearest chunks by cosine
+similarity. The embedder is swappable (`EMBEDDING_PROVIDER`); the default is a
+deterministic offline hashing embedder so retrieval works with no API key.
+
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| POST   | `/api/documents` | Upload a file (multipart) → chunk + embed + store |
+| GET    | `/api/documents` | List documents (paginated) |
+| GET/DELETE | `/api/documents/{id}` | Fetch / delete a document |
+| POST   | `/api/documents/search` | Semantic search → nearest chunks with scores |
+
+```bash
+curl -s -X POST http://localhost:8000/api/documents -F 'file=@notes.txt'
+curl -s -X POST http://localhost:8000/api/documents/search \
+  -H 'Content-Type: application/json' -d '{"query":"payment terms","top_k":5}'
+```
+
+Search is **exact** cosine (sequential scan) — correct at MVP scale; an approximate
+index (HNSW) is the scale upgrade. This retrieval primitive grounds workflows in
+Step 14.
 
 ## Queue & scheduling (Celery + Redis)
 

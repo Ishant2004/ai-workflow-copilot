@@ -11,6 +11,8 @@ pytestmark = pytest.mark.unit
 
 def test_all_tables_registered():
     assert set(Base.metadata.tables) == {
+        "documents",
+        "document_chunks",
         "workflows",
         "steps",
         "runs",
