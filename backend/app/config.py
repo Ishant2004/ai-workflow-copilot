@@ -117,6 +117,11 @@ class Settings(BaseSettings):
     # more rounds trade extra LLM calls (cost/latency) for higher-quality output.
     agent_review_rounds: int = 1
 
+    # --- Feedback loop (Step 18) ---
+    # How many recent positively-rated suggestions to feed the planner as few-shot
+    # exemplars. 0 disables the loop; higher values add prompt tokens (cost).
+    planner_example_limit: int = 3
+
     # --- Output actions / notifications (Step 11) ---
     # Live Slack uses an incoming-webhook URL; live email uses SMTP. When unset,
     # the notify steps fall back to the simulated fake even under TOOLS_PROVIDER=live.

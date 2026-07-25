@@ -26,6 +26,13 @@ class StepType(str, enum.Enum):
     notify_email = "notify_email"
 
 
+class FeedbackRating(str, enum.Enum):
+    """User's verdict on a generated workflow suggestion."""
+
+    positive = "positive"  # good suggestion — reuse as a planning exemplar
+    negative = "negative"  # poor suggestion — do not learn from it
+
+
 class RunStatus(str, enum.Enum):
     pending = "pending"
     running = "running"

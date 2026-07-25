@@ -16,6 +16,7 @@ from app.execution.executor import WorkflowExecutor
 from app.llm import Planner
 from app.rag.embeddings import Embedder
 from app.repositories.documents import DocumentRepository, SqlAlchemyDocumentRepository
+from app.repositories.feedback import FeedbackRepository, SqlAlchemyFeedbackRepository
 from app.repositories.workflows import SqlAlchemyWorkflowRepository, WorkflowRepository
 
 
@@ -51,6 +52,13 @@ def get_document_repo(
 ) -> DocumentRepository:
     """Provide a SQLAlchemy-backed document repository (overridden in tests)."""
     return SqlAlchemyDocumentRepository(session)
+
+
+def get_feedback_repo(
+    session: AsyncSession = Depends(get_db),
+) -> FeedbackRepository:
+    """Provide a SQLAlchemy-backed feedback repository (overridden in tests)."""
+    return SqlAlchemyFeedbackRepository(session)
 
 
 def get_embedder_dep(request: Request) -> Embedder:

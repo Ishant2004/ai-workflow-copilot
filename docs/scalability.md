@@ -122,6 +122,24 @@ Controls that keep that bounded:
 - **Future levers**: run independent agents in parallel where the pipeline allows,
   cache research for identical topics, and stream reviewer output for long digests.
 
+## Feedback loop (Step 18)
+
+Capturing feedback and feeding it back into planning adds a read+write path around
+every suggestion. Kept cheap and bounded:
+
+- **Bounded few-shot context** — only the top `planner_example_limit` recent positive
+  exemplars are injected, capping the prompt-token growth (cost/latency) no matter how
+  much feedback accumulates. `0` disables the loop entirely.
+- **Indexed, self-contained reads** — exemplars come from a single indexed query
+  (`rating`, `created_at`), and each row snapshots its own task+plan, so building the
+  few-shot set never fans out into workflow/step joins.
+- **Durable corpus** — feedback survives workflow deletes (`ON DELETE SET NULL`), so
+  the learning corpus isn't coupled to workflow lifecycle; it can later feed offline
+  fine-tuning or an eval set (Step 19) without a migration.
+- **Future levers**: embed tasks and retrieve the *most similar* approved exemplars
+  (not just the most recent) via pgvector; per-user exemplar scoping; aggregate
+  negative feedback into planner guardrails.
+
 ## Reliability & observability (Step 16)
 
 Hardening the execution path so failures degrade gracefully instead of cascading:

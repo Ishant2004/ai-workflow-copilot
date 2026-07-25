@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import pytest
 from app.config import Settings
-from app.dependencies import get_document_repo, get_workflow_repo
+from app.dependencies import get_document_repo, get_feedback_repo, get_workflow_repo
 from app.main import create_app
 from fastapi.testclient import TestClient
 
-from tests.fakes import InMemoryDocumentRepository, InMemoryWorkflowRepository
+from tests.fakes import (
+    InMemoryDocumentRepository,
+    InMemoryFeedbackRepository,
+    InMemoryWorkflowRepository,
+)
 
 
 @pytest.fixture
@@ -40,10 +44,20 @@ def workflow_repo() -> InMemoryWorkflowRepository:
 
 
 @pytest.fixture
-def workflow_client(settings: Settings, workflow_repo: InMemoryWorkflowRepository) -> TestClient:
-    """Client with the workflow + document repositories overridden by in-memory fakes."""
+def feedback_repo() -> InMemoryFeedbackRepository:
+    return InMemoryFeedbackRepository()
+
+
+@pytest.fixture
+def workflow_client(
+    settings: Settings,
+    workflow_repo: InMemoryWorkflowRepository,
+    feedback_repo: InMemoryFeedbackRepository,
+) -> TestClient:
+    """Client with the workflow/feedback/document repositories overridden by fakes."""
     app = create_app(settings)
     app.dependency_overrides[get_workflow_repo] = lambda: workflow_repo
+    app.dependency_overrides[get_feedback_repo] = lambda: feedback_repo
     # Run execution now builds a document retriever; back it with an empty fake.
     app.dependency_overrides[get_document_repo] = lambda: InMemoryDocumentRepository()
     return TestClient(app)

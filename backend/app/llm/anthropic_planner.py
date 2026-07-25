@@ -11,14 +11,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 
 import anthropic
 from pydantic import ValidationError
 
 from app.config import Settings
 from app.llm.base import Planner, PlannerError
-from app.llm.prompts import PLANNER_TOOL_NAME, SYSTEM_PROMPT, build_planner_tool
-from app.llm.schemas import WorkflowPlan
+from app.llm.prompts import (
+    PLANNER_TOOL_NAME,
+    SYSTEM_PROMPT,
+    build_examples_block,
+    build_planner_tool,
+)
+from app.llm.schemas import PlanExample, WorkflowPlan
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +43,19 @@ class AnthropicPlanner(Planner):
         self._tool = build_planner_tool()
         self._semaphore = asyncio.Semaphore(settings.llm_max_concurrency)
 
-    async def plan(self, task_description: str) -> WorkflowPlan:
+    async def plan(
+        self,
+        task_description: str,
+        *,
+        examples: Sequence[PlanExample] | None = None,
+    ) -> WorkflowPlan:
+        system = SYSTEM_PROMPT + build_examples_block(examples)
         async with self._semaphore:
             try:
                 response = await self._client.messages.create(
                     model=self._model,
                     max_tokens=self._max_tokens,
-                    system=SYSTEM_PROMPT,
+                    system=system,
                     tools=[self._tool],
                     tool_choice={"type": "tool", "name": PLANNER_TOOL_NAME},
                     messages=[{"role": "user", "content": task_description}],

@@ -17,6 +17,7 @@ def test_all_tables_registered():
         "steps",
         "runs",
         "step_results",
+        "feedback",
     }
 
 

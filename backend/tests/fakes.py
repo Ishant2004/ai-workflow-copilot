@@ -5,11 +5,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.llm.schemas import PlanExample, WorkflowPlan
 from app.models.document import Document, DocumentChunk
-from app.models.enums import WorkflowStatus
+from app.models.enums import FeedbackRating, WorkflowStatus
+from app.models.feedback import Feedback
 from app.models.run import Run
 from app.models.workflow import Step, Workflow
 from app.repositories.documents import DocumentRepository
+from app.repositories.feedback import FeedbackRepository
 from app.repositories.workflows import WorkflowRepository
 from app.schemas.workflow import WorkflowUpdate
 from app.services.workflows import steps_from_input
@@ -111,6 +114,36 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     async def get_run(self, run_id: UUID) -> Run | None:
         return self._runs.get(run_id)
+
+
+class InMemoryFeedbackRepository(FeedbackRepository):
+    def __init__(self) -> None:
+        self._feedback: list[Feedback] = []
+
+    async def create(self, feedback: Feedback) -> Feedback:
+        now = datetime.now(UTC)
+        feedback.id = uuid4()
+        feedback.created_at = now
+        feedback.updated_at = now
+        self._feedback.append(feedback)
+        return feedback
+
+    async def list_for_workflow(self, workflow_id: UUID) -> list[Feedback]:
+        items = [f for f in self._feedback if f.workflow_id == workflow_id]
+        return sorted(items, key=lambda f: f.created_at, reverse=True)
+
+    async def recent_examples(self, limit: int) -> list[PlanExample]:
+        if limit <= 0:
+            return []
+        positive = [f for f in self._feedback if f.rating is FeedbackRating.positive]
+        positive.sort(key=lambda f: f.created_at, reverse=True)
+        return [
+            PlanExample(
+                task_description=f.task_description,
+                plan=WorkflowPlan.model_validate(f.plan),
+            )
+            for f in positive[:limit]
+        ]
 
 
 def _cosine_distance(a: list[float], b: list[float]) -> float:

@@ -101,6 +101,21 @@ Returns a `WorkflowPlan` (title, summary, ordered typed steps). No persistence y
 — that's Step 6. Returns **503** if no provider is configured, **502** if the model
 fails to produce a valid plan.
 
+### Feedback loop (improving suggestions)
+
+Users rate a workflow's suggestion, and positive ratings steer future ones:
+
+- `POST /api/workflows/{id}/feedback` `{ "rating": "positive|negative", "comment": "…" }`
+  stores the verdict plus a **self-contained snapshot** of the task + plan (so the
+  example survives later edits/deletes — feedback is nulled, not cascaded, on delete).
+- `GET /api/workflows/{id}/feedback` lists a workflow's feedback.
+- On the next `POST /api/workflows` (planner path), the most recent
+  `PLANNER_EXAMPLE_LIMIT` positively-rated snapshots are passed to `planner.plan(...)`
+  as **few-shot exemplars**, so the model mirrors shapes users have approved. The fake
+  planner adopts the exemplar's step shape too, so the loop is demonstrable offline.
+
+Set `PLANNER_EXAMPLE_LIMIT=0` to disable the loop.
+
 ## Workflows API
 
 Persists planner output as `Workflow` + ordered `Step` rows and exposes CRUD +

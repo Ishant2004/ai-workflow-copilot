@@ -29,3 +29,14 @@ class WorkflowPlan(BaseModel):
     title: str
     summary: str
     steps: list[PlannedStep]
+
+
+class PlanExample(BaseModel):
+    """A past, positively-rated (task → plan) pair used to steer new suggestions.
+
+    Sourced from user feedback (Step 18) so the planner learns the shapes users
+    approve of — the "feedback loop to improve workflow suggestions".
+    """
+
+    task_description: str
+    plan: WorkflowPlan

@@ -16,6 +16,7 @@ from app.dependencies import (
     get_document_repo,
     get_embedder_dep,
     get_executor_dep,
+    get_feedback_repo,
     get_planner_dep,
     get_settings_dep,
     get_workflow_repo,
@@ -23,11 +24,14 @@ from app.dependencies import (
 from app.execution.executor import WorkflowExecutor
 from app.llm import Planner, PlannerError
 from app.models.enums import RunStatus
+from app.models.feedback import Feedback
 from app.models.run import Run
 from app.rag.embeddings import Embedder
 from app.rag.retriever import DocumentRetriever
 from app.repositories.documents import DocumentRepository
+from app.repositories.feedback import FeedbackRepository
 from app.repositories.workflows import WorkflowRepository
+from app.schemas.feedback import FeedbackCreate, FeedbackOut
 from app.schemas.workflow import (
     RunOut,
     WorkflowCreate,
@@ -35,7 +39,7 @@ from app.schemas.workflow import (
     WorkflowOut,
     WorkflowUpdate,
 )
-from app.services.workflows import workflow_from_plan
+from app.services.workflows import plan_from_workflow, workflow_from_plan
 from app.worker import tasks
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
@@ -45,12 +49,16 @@ router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 async def create_workflow(
     body: WorkflowCreate,
     repo: WorkflowRepository = Depends(get_workflow_repo),
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repo),
     planner: Planner = Depends(get_planner_dep),
+    settings: Settings = Depends(get_settings_dep),
 ) -> WorkflowOut:
     plan = body.plan
     if plan is None:
+        # Feedback loop: steer the suggestion with recently-approved exemplars.
+        examples = await feedback_repo.recent_examples(settings.planner_example_limit)
         try:
-            plan = await planner.plan(body.task_description)
+            plan = await planner.plan(body.task_description, examples=examples)
         except PlannerError as exc:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     workflow = await repo.create(workflow_from_plan(description=body.task_description, plan=plan))
@@ -152,3 +160,48 @@ async def run_workflow(
     run = await executor.run(workflow, require_review=settings.require_review, retriever=retriever)
     saved = await repo.create_run(run)
     return RunOut.model_validate(saved)
+
+
+@router.post(
+    "/{workflow_id}/feedback",
+    response_model=FeedbackOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_feedback(
+    workflow_id: UUID,
+    body: FeedbackCreate,
+    repo: WorkflowRepository = Depends(get_workflow_repo),
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repo),
+) -> FeedbackOut:
+    """Rate a workflow's suggestion. Positive feedback becomes a planning exemplar.
+
+    A self-contained snapshot of the current task + plan is stored, so the example
+    survives later edits/deletes of the workflow.
+    """
+    workflow = await repo.get(workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    snapshot = plan_from_workflow(workflow)
+    feedback = await feedback_repo.create(
+        Feedback(
+            workflow_id=workflow_id,
+            rating=body.rating,
+            comment=body.comment,
+            task_description=workflow.description,
+            plan=snapshot.model_dump(mode="json"),
+        )
+    )
+    return FeedbackOut.model_validate(feedback)
+
+
+@router.get("/{workflow_id}/feedback", response_model=list[FeedbackOut])
+async def list_feedback(
+    workflow_id: UUID,
+    repo: WorkflowRepository = Depends(get_workflow_repo),
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repo),
+) -> list[FeedbackOut]:
+    if await repo.get(workflow_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+    items = await feedback_repo.list_for_workflow(workflow_id)
+    return [FeedbackOut.model_validate(f) for f in items]
