@@ -68,6 +68,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Next standalone server.js binds $HOSTNAME; force 0.0.0.0 so Render can reach it
+      # (the container's default HOSTNAME is an unbindable container id).
+      - key: HOSTNAME
+        value: 0.0.0.0
       # Browser-facing, baked at build. Must be the API's public URL.
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://copilot-api.onrender.com # ← update to the real API URL
