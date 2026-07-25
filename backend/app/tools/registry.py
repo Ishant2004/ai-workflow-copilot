@@ -47,6 +47,17 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
                 "TOOLS_PROVIDER=live but ANTHROPIC_API_KEY is unset; using the fake summarizer."
             )
 
+        if settings.search_provider.lower() == "tavily" and settings.tavily_api_key:
+            from app.tools.search import TavilyWebSearchTool  # noqa: PLC0415
+
+            web_search = TavilyWebSearchTool(
+                settings.tavily_api_key,
+                settings.search_max_results,
+                settings.tool_timeout_seconds,
+            )
+        elif settings.search_provider.lower() == "tavily":
+            logger.warning("SEARCH_PROVIDER=tavily but TAVILY_API_KEY is unset; using fake search.")
+
         if settings.slack_webhook_url:
             from app.tools.notify import LiveSlackNotifyTool  # noqa: PLC0415
 

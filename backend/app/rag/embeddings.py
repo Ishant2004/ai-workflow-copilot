@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import abc
 import hashlib
+import logging
 import math
 import re
 
 from app.config import Settings
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_DIM = 256
 
@@ -72,5 +75,15 @@ def get_embedder(settings: Settings) -> Embedder:
     provider = settings.embedding_provider.lower()
     if provider == "fake":
         return HashingEmbedder()
-    # Real providers (Voyage/OpenAI/...) plug in here, projecting to EMBEDDING_DIM.
+    if provider == "openai":
+        if not settings.openai_api_key:
+            logger.warning(
+                "EMBEDDING_PROVIDER=openai but OPENAI_API_KEY is unset; using the fake embedder."
+            )
+            return HashingEmbedder()
+        from app.rag.openai_embedder import OpenAIEmbedder  # noqa: PLC0415 - optional provider
+
+        return OpenAIEmbedder(
+            settings.openai_api_key, settings.embedding_model, settings.tool_timeout_seconds
+        )
     raise ValueError(f"unknown embedding provider: {settings.embedding_provider!r}")

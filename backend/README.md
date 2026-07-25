@@ -175,6 +175,8 @@ using any edits) or **rejected** (cancels with no side effects). This enforces t
 The `notify_slack` / `notify_email` steps deliver the reviewed summary. Under
 `TOOLS_PROVIDER=live`:
 
+- **Web search** — set `SEARCH_PROVIDER=tavily` + `TAVILY_API_KEY` for real results via
+  the [Tavily](https://tavily.com) API (free tier). Unset → the deterministic fake stub.
 - **Slack** — set `SLACK_WEBHOOK_URL` (incoming webhook); the tool POSTs the message.
 - **Email** — set `SMTP_HOST` + `EMAIL_FROM` (and `SMTP_USER`/`SMTP_PASSWORD` if the
   server requires auth); the tool sends via SMTP (STARTTLS).
@@ -187,8 +189,14 @@ Keep webhook URLs and SMTP passwords in `.env` (git-ignored), never in tracked f
 
 Upload a document → text is extracted (text/PDF), chunked, embedded, and stored in
 a pgvector column; search embeds the query and returns the nearest chunks by cosine
-similarity. The embedder is swappable (`EMBEDDING_PROVIDER`); the default is a
-deterministic offline hashing embedder so retrieval works with no API key.
+similarity. The embedder is swappable (`EMBEDDING_PROVIDER`): the default is a
+deterministic offline hashing embedder (no API key); `openai` uses
+`text-embedding-3-small` for real semantic vectors, requested at the column's
+`EMBEDDING_DIM` (256) via the `dimensions` parameter so **no migration is needed**
+(set `OPENAI_API_KEY`; unset → falls back to the hashing embedder). Switching
+providers changes the vector space, so re-embed any documents ingested under the old
+one. Embedding runs off the event loop (`asyncio.to_thread`) so its network call
+can't block other requests.
 
 | Method | Path | Purpose |
 | ------ | ---- | ------- |

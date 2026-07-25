@@ -72,9 +72,18 @@ ADR-004. Search is **exact cosine** (sequential scan) at MVP scale, which is
 correct and simple. The scale path: add an **HNSW** index (`vector_cosine_ops`)
 for approximate nearest-neighbour — note that an under-tuned IVFFlat index (too
 many `lists` for the row count, low `probes`) can silently return incomplete
-results, so HNSW is the safer default. The embedder is provider-swappable and its
-calls should get the same concurrency cap + timeout treatment as the planner once
-a network provider is wired in.
+results, so HNSW is the safer default.
+
+**Real providers (search + embeddings).** The `tavily` web-search tool and the
+`openai` embedder are now wired behind the same interfaces, both HTTP-based and
+timeout-bounded. Their network calls run off the event loop (`asyncio.to_thread`) so
+they don't block the async API, and each falls back to its offline fake when the key
+is unset — degradation over failure. The embedder is requested at the column's fixed
+`EMBEDDING_DIM` (via OpenAI's `dimensions` param) so real vectors need no migration.
+Scale levers: **batch** embedding requests (ingest already passes the whole chunk
+list in one call), cache query embeddings, and give both providers the planner's
+per-process concurrency cap + retry/backoff as call volume grows (per-provider rate
+limits and cost become the ceiling).
 
 ## Schema migrations at scale
 

@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     tools_provider: str = "fake"  # fake | live
     tool_timeout_seconds: float = 30.0
     search_max_results: int = 5
+    # Real web search: "tavily" (needs tavily_api_key) vs the offline "fake" stub.
+    # Only used when tools_provider="live"; falls back to fake if unconfigured.
+    search_provider: str = "fake"  # fake | tavily
+    tavily_api_key: str | None = None
     # Retry transient step failures with exponential backoff (base * 2**attempt).
     step_max_retries: int = 2
     step_retry_backoff_seconds: float = 0.5
@@ -154,8 +158,12 @@ class Settings(BaseSettings):
 
     # --- RAG / embeddings (Step 13) ---
     # Provider is swappable; "fake" is a deterministic offline hashing embedder.
+    # "openai" uses text-embedding-3-small with the `dimensions` param pinned to
+    # EMBEDDING_DIM, so real vectors fit the existing pgvector column (no migration).
     # (The embedding dimension is a structural constant — see app/rag/embeddings.py.)
-    embedding_provider: str = "fake"
+    embedding_provider: str = "fake"  # fake | openai
+    openai_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
     chunk_size: int = 1000  # characters per chunk
     chunk_overlap: int = 150  # character overlap between consecutive chunks
     rag_top_k: int = 5  # default number of chunks returned by search

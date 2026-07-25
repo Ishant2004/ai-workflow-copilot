@@ -7,6 +7,7 @@ that Step 14 wires into workflow grounding).
 
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -48,7 +49,10 @@ async def upload_document(
 ) -> DocumentOut:
     data = await file.read()
     try:
-        document = ingest_document(
+        # Runs text extraction + embedding (a network call for real providers) off
+        # the event loop so a large upload can't block other requests.
+        document = await asyncio.to_thread(
+            ingest_document,
             filename=file.filename or "upload",
             content_type=file.content_type,
             data=data,

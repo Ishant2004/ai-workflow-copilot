@@ -44,8 +44,16 @@ services:
         value: anthropic # set to "fake" to run without an API key
       - key: TOOLS_PROVIDER
         value: live
+      # Real web search (falls back to a fake stub until TAVILY_API_KEY is set):
+      - key: SEARCH_PROVIDER
+        value: tavily
+      - key: TAVILY_API_KEY
+        sync: false # set in the dashboard (https://tavily.com); optional
+      # Real embeddings (falls back to the offline hashing embedder until the key is set):
       - key: EMBEDDING_PROVIDER
-        value: fake
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false # set in the dashboard; optional (only used for RAG embeddings)
       - key: ANTHROPIC_API_KEY
         sync: false # set this secret in the Render dashboard
       - key: CORS_ORIGINS

@@ -7,6 +7,7 @@ vector similarity search to the repository, converting distance to a 0–1 score
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -56,7 +57,8 @@ def ingest_document(
 async def search_documents(
     *, repo: SupportsSearch, embedder: Embedder, query: str, top_k: int
 ) -> list[ChunkHit]:
-    query_vec = embedder.embed_one(query)
+    # Off the event loop: real embedders make a network call per query.
+    query_vec = await asyncio.to_thread(embedder.embed_one, query)
     hits = await repo.search(query_vec, top_k)
     # pgvector returns cosine *distance* (0 = identical); similarity = 1 - distance.
     return [ChunkHit(chunk=chunk, score=1.0 - distance) for chunk, distance in hits]
