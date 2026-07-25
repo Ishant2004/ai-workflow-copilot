@@ -58,6 +58,9 @@ services:
         sync: false # set this secret in the Render dashboard
       - key: CORS_ORIGINS
         value: https://copilot-frontend-rlqo.onrender.com # ← update to the real frontend URL
+      # Worker-free cron: an external scheduler POSTs /api/scheduler/tick with this token.
+      - key: SCHEDULER_TOKEN
+        generateValue: true # Render generates a secret; copy it into your cron's header
       - key: DATABASE_URL
         fromDatabase:
           name: copilot-db

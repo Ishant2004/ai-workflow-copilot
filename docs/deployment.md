@@ -41,6 +41,30 @@ docker build -t copilot-backend ./backend --target prod
 docker build -t copilot-frontend ./frontend --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com
 ```
 
+## Scheduling without a worker (free)
+
+Celery Beat needs an always-on (often paid) process. To get **cron scheduling for
+free**, the app exposes `POST /api/scheduler/tick` — it runs the same "find due
+scheduled workflows → execute them" logic inline, driven by an external cron instead
+of Beat. No worker or Redis required.
+
+1. Set `SCHEDULER_TOKEN` (a long random secret) on the API service. On Render's
+   blueprint it's `generateValue: true` — copy the generated value from the dashboard.
+2. Point a **free scheduler** at the endpoint every N seconds, passing
+   `window_seconds=N` so each occurrence fires exactly once:
+   ```bash
+   curl -X POST "https://<api-url>/api/scheduler/tick?window_seconds=300" \
+     -H "X-Scheduler-Token: <SCHEDULER_TOKEN>"
+   ```
+   - **cron-job.org / UptimeRobot** — free, precise; use a 1-min interval with
+     `window_seconds=60` for exact timing (recommended).
+   - **GitHub Actions** — `.github/workflows/scheduler.yml` is ready to go; set repo
+     vars `SCHEDULER_ENABLED=true` + `SCHEDULER_URL`, and secret `SCHEDULER_TOKEN`.
+     (5-min minimum and can lag, so it may miss a same-minute schedule.)
+
+Scheduled runs execute unattended (no review gate). `window_seconds` **must match the
+cron interval**: too small misses occurrences, too large can double-fire.
+
 ## CI/CD (GitHub Actions)
 
 - **`.github/workflows/ci.yml`** — on every push/PR. Backend: ruff lint + format check, migrations apply, full `pytest` (unit + integration against a pgvector service container), and the **eval harness gate** (`python -m app.eval`). Frontend: eslint, vitest, production build. This is the quality gate.

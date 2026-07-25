@@ -1,0 +1,25 @@
+name: Scheduler tick
+
+# Free, worker-free cron: pokes the API's /api/scheduler/tick so due scheduled
+# workflows run. Inert until you opt in — set repo variables SCHEDULER_ENABLED=true
+# and SCHEDULER_URL (your API base URL), and secret SCHEDULER_TOKEN (the value Render
+# generated for SCHEDULER_TOKEN).
+#
+# GitHub's minimum interval is 5 min and it can lag, so window_seconds=300 matches the
+# */5 schedule. For precise timing (e.g. exact minute), use cron-job.org at a 1-min
+# interval with window_seconds=60 instead — see docs/deployment.md.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    if: ${{ vars.SCHEDULER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scheduler tick
+        run: |
+          curl -fsS -X POST \
+            "${{ vars.SCHEDULER_URL }}/api/scheduler/tick?window_seconds=300" \
+            -H "X-Scheduler-Token: ${{ secrets.SCHEDULER_TOKEN }}"

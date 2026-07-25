@@ -129,6 +129,15 @@ class Settings(BaseSettings):
     # exemplars. 0 disables the loop; higher values add prompt tokens (cost).
     planner_example_limit: int = 3
 
+    # --- Scheduler tick endpoint (worker-free cron) ---
+    # When set, POST /api/scheduler/tick (header X-Scheduler-Token) runs due scheduled
+    # workflows inline — point a free external cron (cron-job.org, GitHub Actions) at it
+    # instead of running Celery Beat. Unset → the endpoint is disabled (503).
+    scheduler_token: str | None = None
+    # Dispatch window; MUST match your external cron's interval so each scheduled
+    # occurrence fires exactly once (e.g. cron every 5 min → 300).
+    scheduler_tick_window_seconds: float = 300.0
+
     # --- Evaluation harness (Step 19) ---
     # Grounding (anti-hallucination) score below which a produced digest is flagged:
     # the fraction of a summary's content words supported by its source material.

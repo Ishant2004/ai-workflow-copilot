@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import documents, health, planner, runs, workflows
+from app.api.routes import documents, health, planner, runs, scheduler, workflows
 from app.config import Settings, get_settings
 from app.db.session import create_engine_from_settings, create_session_factory
 from app.execution.executor import WorkflowExecutor
@@ -97,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(runs.router)
     app.include_router(documents.router)
+    app.include_router(scheduler.router)
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:
