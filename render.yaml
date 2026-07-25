@@ -30,8 +30,8 @@ services:
     region: singapore
     plan: free # free web instances cold-start after ~15 min idle
     healthCheckPath: /health/ready
-    # Run migrations, then start the server on Render's assigned $PORT.
-    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-2}"
+    # Applies migrations, then starts uvicorn on Render's $PORT (see the script).
+    dockerCommand: sh scripts/render-start.sh
     autoDeploy: true
     envVars:
       - key: APP_ENV
