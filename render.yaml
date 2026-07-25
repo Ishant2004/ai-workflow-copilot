@@ -1,29 +1,26 @@
-# Render blueprint — deploy the whole Workflow AI Copilot from the repo.
-# Setup: Render Dashboard → New → Blueprint → pick this repo. Render builds the
-# Dockerfiles in its cloud (no local Docker needed) and wires the services together.
+# Render blueprint — FREE tier (no credit card).
+# Setup: Render Dashboard → New → Blueprint → pick this repo → Apply. Render builds
+# the Dockerfiles in its cloud (no local Docker needed).
 #
-# After the first deploy, confirm the two public URLs Render assigned and, if they
-# differ from the defaults below, update FRONTEND (NEXT_PUBLIC_API_BASE_URL) and
-# API (CORS_ORIGINS), then redeploy. Set ANTHROPIC_API_KEY in the dashboard (secret).
+# This variant runs on Render's free plans only: web API + web frontend + free
+# Postgres. Workflow runs execute INLINE (RUN_ASYNC=false), so there's no Celery
+# worker/Redis to pay for. Trade-off: no background queue and no cron scheduling.
+# To enable those later, uncomment the Redis + worker blocks at the bottom, add
+# REDIS_URL back to the API, and set RUN_ASYNC=true (the worker needs a paid plan).
 #
-# See docs/deployment.md. Regions: change `region` if you prefer another.
+# After the first deploy: set ANTHROPIC_API_KEY (secret) on copilot-api, and if the
+# assigned URLs differ from the defaults, update NEXT_PUBLIC_API_BASE_URL (frontend)
+# and CORS_ORIGINS (api), then redeploy. See docs/deployment.md.
 
 databases:
   - name: copilot-db
     databaseName: copilot
     user: copilot
-    plan: free # 90-day free Postgres; bump to a paid plan for production
+    plan: free # free Postgres, no card (expires after 90 days)
     postgresMajorVersion: "16" # pgvector is enabled by the app's first migration
     region: singapore
 
 services:
-  # --- Redis (Celery broker) ---
-  - type: redis
-    name: copilot-redis
-    plan: free
-    region: singapore
-    ipAllowList: [] # internal only (reachable from the other services)
-
   # --- API (FastAPI) ---
   - type: web
     name: copilot-api
@@ -31,7 +28,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: singapore
-    plan: free # free web instances cold-start after idle; bump to starter for always-on
+    plan: free # free web instances cold-start after ~15 min idle
     healthCheckPath: /health/ready
     # Run migrations, then start the server on Render's assigned $PORT.
     dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-2}"
@@ -40,7 +37,7 @@ services:
       - key: APP_ENV
         value: production
       - key: RUN_ASYNC
-        value: "true"
+        value: "false" # execute runs inline (no Celery worker needed)
       - key: UVICORN_WORKERS
         value: "2"
       - key: LLM_PROVIDER
@@ -56,45 +53,6 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: copilot-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: copilot-redis
-          property: connectionString
-
-  # --- Worker (Celery worker + embedded beat scheduler via -B) ---
-  # Keep this at a single instance: -B runs the scheduler in-process, so scaling
-  # to >1 would double-fire scheduled workflows. Split beat into its own service
-  # (drop -B here, add a `celery ... beat` worker) if you need to scale workers.
-  - type: worker
-    name: copilot-worker
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    region: singapore
-    plan: starter # Render background workers require a paid instance type
-    dockerCommand: celery -A app.worker.celery_app worker -B --loglevel=info -Q copilot
-    autoDeploy: true
-    envVars:
-      - key: APP_ENV
-        value: production
-      - key: LLM_PROVIDER
-        value: anthropic
-      - key: TOOLS_PROVIDER
-        value: live
-      - key: EMBEDDING_PROVIDER
-        value: fake
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: copilot-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: copilot-redis
           property: connectionString
 
   # --- Frontend (Next.js standalone) ---
@@ -113,3 +71,44 @@ services:
       # Browser-facing, baked at build. Must be the API's public URL.
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://copilot-api.onrender.com # ← update to the real API URL
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPTIONAL: enable the async queue + cron scheduling (requires a PAID worker).
+# 1) Uncomment the Redis service and the worker service below.
+# 2) On copilot-api add:  - key: REDIS_URL  (fromService copilot-redis)
+#    and flip RUN_ASYNC to "true".
+#
+#   - type: redis
+#     name: copilot-redis
+#     plan: free
+#     region: singapore
+#     ipAllowList: []
+#
+#   - type: worker
+#     name: copilot-worker
+#     runtime: docker
+#     dockerfilePath: ./backend/Dockerfile
+#     dockerContext: ./backend
+#     region: singapore
+#     plan: starter            # Render workers have no free plan
+#     dockerCommand: celery -A app.worker.celery_app worker -B --loglevel=info -Q copilot
+#     envVars:
+#       - key: APP_ENV
+#         value: production
+#       - key: LLM_PROVIDER
+#         value: anthropic
+#       - key: TOOLS_PROVIDER
+#         value: live
+#       - key: EMBEDDING_PROVIDER
+#         value: fake
+#       - key: ANTHROPIC_API_KEY
+#         sync: false
+#       - key: DATABASE_URL
+#         fromDatabase:
+#           name: copilot-db
+#           property: connectionString
+#       - key: REDIS_URL
+#         fromService:
+#           type: redis
+#           name: copilot-redis
+#           property: connectionString
