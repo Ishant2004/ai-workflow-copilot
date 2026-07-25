@@ -120,8 +120,6 @@ def test_registry_uses_tavily_when_live_and_keyed():
         )
     )
     assert isinstance(reg.get(StepType.web_search), TavilyWebSearchTool)
-    # scrape reuses the same search tool instance.
-    assert reg.get(StepType.scrape) is reg.get(StepType.web_search)
 
 
 def test_registry_falls_back_to_fake_search_without_key():

@@ -40,8 +40,16 @@ class ClaudeSummarizeTool(Tool):
     async def run(self, step: Step, context: ExecutionContext) -> ToolOutput:
         search = context.get(StepType.web_search.value) or {}
         retrieved = context.get(StepType.retrieve.value) or {}
-        material_items = (search.get("results", []) if isinstance(search, dict) else []) + (
-            retrieved.get("chunks", []) if isinstance(retrieved, dict) else []
+        scraped = context.get(StepType.scrape.value) or {}
+        scrape_items = (
+            [{"content": scraped["content"]}]
+            if isinstance(scraped, dict) and scraped.get("content")
+            else []
+        )
+        material_items = (
+            (search.get("results", []) if isinstance(search, dict) else [])
+            + (retrieved.get("chunks", []) if isinstance(retrieved, dict) else [])
+            + scrape_items
         )
         material = json.dumps(material_items)
         try:

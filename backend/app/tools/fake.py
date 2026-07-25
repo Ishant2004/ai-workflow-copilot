@@ -45,11 +45,18 @@ class FakeSummarizeTool(Tool):
         chunks = retrieved.get("chunks", []) if isinstance(retrieved, dict) else []
         lines += [f"- {c.get('content', '')[:80]}" for c in chunks]
 
+        # Ground on scraped page text when present.
+        scraped = context.get(StepType.scrape.value) or {}
+        scrape_content = scraped.get("content", "") if isinstance(scraped, dict) else ""
+        if scrape_content:
+            lines.append(f"- {scrape_content[:80]}")
+
         if lines:
             summary = "Summary of findings:\n" + "\n".join(lines)
         else:
             summary = f"Summary for: {step.name}"
-        return {"summary": summary, "source_count": len(results) + len(chunks)}
+        source_count = len(results) + len(chunks) + (1 if scrape_content else 0)
+        return {"summary": summary, "source_count": source_count}
 
 
 class FakeNotifyTool(Tool):

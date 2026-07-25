@@ -74,9 +74,12 @@ for approximate nearest-neighbour — note that an under-tuned IVFFlat index (to
 many `lists` for the row count, low `probes`) can silently return incomplete
 results, so HNSW is the safer default.
 
-**Real providers (search + embeddings).** The `tavily` web-search tool and the
-`openai` embedder are now wired behind the same interfaces, both HTTP-based and
-timeout-bounded. Their network calls run off the event loop (`asyncio.to_thread`) so
+**Real providers (search + scrape + embeddings).** The `tavily` web-search tool, the
+`scrape` tool (fetch URL → extract text), and the `openai` embedder are wired behind
+the same interfaces, all HTTP-based and timeout-bounded. `scrape` fetches a
+user-supplied URL, so it caps extracted text (`scrape_max_chars`) and applies a basic
+SSRF guard (rejects non-HTTP(S) and internal/metadata hosts) — a production guard would
+also resolve DNS and re-check the IP. Their network calls run off the event loop (`asyncio.to_thread`) so
 they don't block the async API, and each falls back to its offline fake when the key
 is unset — degradation over failure. The embedder is requested at the column's fixed
 `EMBEDDING_DIM` (via OpenAI's `dimensions` param) so real vectors need no migration.

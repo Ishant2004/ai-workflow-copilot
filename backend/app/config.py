@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     # Only used when tools_provider="live"; falls back to fake if unconfigured.
     search_provider: str = "fake"  # fake | tavily
     tavily_api_key: str | None = None
+    # `scrape` fetches a URL and extracts its text; cap the extracted length so a
+    # huge page can't blow up storage or downstream LLM token budgets.
+    scrape_max_chars: int = 20000
     # Retry transient step failures with exponential backoff (base * 2**attempt).
     step_max_retries: int = 2
     step_retry_backoff_seconds: float = 0.5

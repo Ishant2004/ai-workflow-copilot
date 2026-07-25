@@ -16,6 +16,7 @@ from app.tools.base import Tool
 from app.tools.fake import FakeNotifyTool, FakeSummarizeTool, FakeWebSearchTool
 from app.tools.orchestrate import OrchestrateTool
 from app.tools.retrieve import RetrieveTool
+from app.tools.scrape import FakeScrapeTool
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,16 @@ class ToolRegistry:
 
 def build_tool_registry(settings: Settings) -> ToolRegistry:
     web_search = FakeWebSearchTool(max_results=settings.search_max_results)
+    scrape: Tool = FakeScrapeTool()
     summarize: Tool = FakeSummarizeTool()
     notify_slack: Tool = FakeNotifyTool()
     notify_email: Tool = FakeNotifyTool()
 
     if settings.tools_provider.lower() == "live":
+        from app.tools.scrape import ScrapeTool  # noqa: PLC0415
+
+        scrape = ScrapeTool(settings.tool_timeout_seconds, settings.scrape_max_chars)
+
         if settings.anthropic_api_key:
             from app.tools.summarize import ClaudeSummarizeTool  # noqa: PLC0415
 
@@ -90,7 +96,7 @@ def build_tool_registry(settings: Settings) -> ToolRegistry:
     return ToolRegistry(
         {
             StepType.web_search: web_search,
-            StepType.scrape: web_search,  # reuse search behavior for the scrape stub
+            StepType.scrape: scrape,
             StepType.retrieve: RetrieveTool(default_top_k=settings.rag_top_k),
             StepType.summarize: summarize,
             StepType.orchestrate: orchestrate,

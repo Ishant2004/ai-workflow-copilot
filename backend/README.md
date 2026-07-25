@@ -177,6 +177,10 @@ The `notify_slack` / `notify_email` steps deliver the reviewed summary. Under
 
 - **Web search** — set `SEARCH_PROVIDER=tavily` + `TAVILY_API_KEY` for real results via
   the [Tavily](https://tavily.com) API (free tier). Unset → the deterministic fake stub.
+- **Scrape** — a `scrape` step with a `url` fetches the page and extracts its text
+  (stdlib HTML parser, capped at `SCRAPE_MAX_CHARS`). The URL is user-supplied, so it
+  refuses non-HTTP(S) schemes and internal targets (loopback/private/link-local, cloud
+  metadata) as a basic SSRF guard. Offline → a deterministic fake.
 - **Slack** — set `SLACK_WEBHOOK_URL` (incoming webhook); the tool POSTs the message.
 - **Email** — set `SMTP_HOST` + `EMAIL_FROM` (and `SMTP_USER`/`SMTP_PASSWORD` if the
   server requires auth); the tool sends via SMTP (STARTTLS).

@@ -135,6 +135,10 @@ class GroundingEvaluator(Evaluator):
         for chunk in retrieved.get("chunks", []):
             sources.append(str(chunk.get("content") or ""))
 
+        scraped = outputs.get(StepType.scrape.value) or {}
+        if scraped.get("content"):
+            sources.append(str(scraped["content"]))
+
         # The orchestrator's own researcher turn is source material for its digest.
         orchestrate = outputs.get(StepType.orchestrate.value) or {}
         for turn in orchestrate.get("turns", []):

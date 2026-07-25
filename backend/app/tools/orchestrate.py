@@ -30,6 +30,11 @@ def _gather_material(context: ExecutionContext) -> list[str]:
         if content:
             material.append(str(content))
 
+    scraped = context.get(StepType.scrape.value) or {}
+    scrape_content = scraped.get("content") if isinstance(scraped, dict) else None
+    if scrape_content:
+        material.append(str(scrape_content))
+
     return material
 
 
