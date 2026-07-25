@@ -122,6 +122,15 @@ class Settings(BaseSettings):
     # exemplars. 0 disables the loop; higher values add prompt tokens (cost).
     planner_example_limit: int = 3
 
+    # --- Evaluation harness (Step 19) ---
+    # Grounding (anti-hallucination) score below which a produced digest is flagged:
+    # the fraction of a summary's content words supported by its source material.
+    eval_grounding_threshold: float = 0.5
+    # CI gate: overall case pass-rate the harness must meet to exit 0.
+    eval_min_pass_rate: float = 1.0
+    # Optional path to a JSON eval dataset; falls back to the built-in cases.
+    eval_dataset_path: str | None = None
+
     # --- Output actions / notifications (Step 11) ---
     # Live Slack uses an incoming-webhook URL; live email uses SMTP. When unset,
     # the notify steps fall back to the simulated fake even under TOOLS_PROVIDER=live.

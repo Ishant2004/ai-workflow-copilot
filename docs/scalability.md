@@ -122,6 +122,23 @@ Controls that keep that bounded:
 - **Future levers**: run independent agents in parallel where the pipeline allows,
   cache research for identical topics, and stream reviewer output for long digests.
 
+## Evaluation harness (Step 19)
+
+The harness is how quality *stays* scalable as the system grows — it catches
+regressions before they ship rather than after they degrade production:
+
+- **Offline + deterministic by default** — with the fake providers it runs with no
+  network/API cost, so it's cheap enough to gate every CI run; the LLM path is opt-in
+  for periodic deeper evals.
+- **Cheap grounding proxy** — the anti-hallucination score is O(tokens) set overlap,
+  not an LLM call, so scoring thousands of cases stays fast; the `Evaluator` interface
+  lets a costlier LLM-grader slot in only where warranted.
+- **Data-driven scale-out** — cases come from a JSON dataset (`EVAL_DATASET_PATH`),
+  so the suite grows without code changes and can be sharded across CI workers; the
+  Step 18 feedback corpus is a natural source of new cases.
+- **CI gate, not a dashboard** — a single pass-rate threshold (`EVAL_MIN_PASS_RATE`)
+  turns quality into a build-breaking signal, which is what keeps it enforced at scale.
+
 ## Feedback loop (Step 18)
 
 Capturing feedback and feeding it back into planning adds a read+write path around

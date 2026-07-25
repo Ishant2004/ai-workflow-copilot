@@ -276,6 +276,29 @@ environment (this holds even with `debug=true`, since it's enforced in
 `RequestIDMiddleware`, not only the app error handler). Expected errors keep their
 existing shapes (`404`/`502` still use FastAPI's `{"detail": ...}`).
 
+## Evaluation harness (quality + hallucination)
+
+A CI-friendly gate that generates a plan for each case in a dataset, executes it
+end-to-end (fake tools, no review gate), and scores the result with pluggable
+`Evaluator`s (`app/eval/`):
+
+- **`plan_structure`** — quality: non-empty, sanely ordered (source before
+  summarize; nothing notified with nothing to deliver), required config present, and
+  any `expect_step_types` are covered.
+- **`run_success`** — the plan actually executes with no failed steps.
+- **`grounding`** — hallucination proxy: the fraction of the produced digest's content
+  words supported by its source material (search snippets / retrieved chunks /
+  researcher findings). Below `EVAL_GROUNDING_THRESHOLD` is flagged. Pure and offline;
+  the `Evaluator` interface lets an LLM-graded check replace it later.
+
+```bash
+python -m app.eval                      # built-in dataset (offline with the fake providers)
+EVAL_DATASET_PATH=cases.json python -m app.eval
+```
+
+It prints a JSON report and **exits non-zero** when the pass-rate is below
+`EVAL_MIN_PASS_RATE`, so it can fail CI on a quality/grounding regression.
+
 ## Lint & format
 
 ```bash
