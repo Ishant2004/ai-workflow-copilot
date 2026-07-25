@@ -210,3 +210,68 @@ export function approveRun(runId: string): Promise<Run> {
 export function rejectRun(runId: string): Promise<Run> {
   return apiFetch<Run>(`/api/runs/${runId}/reject`, { method: "POST" });
 }
+
+// --- Documents (RAG) ---
+
+export interface DocumentSummary {
+  id: string;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number;
+  chunk_count: number;
+  created_at: string;
+}
+
+export interface DocumentListResponse {
+  items: DocumentSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Upload a file (multipart) → extracted, chunked, embedded, stored. */
+export async function uploadDocument(file: File): Promise<DocumentSummary> {
+  const form = new FormData();
+  form.append("file", file);
+  // No JSON Content-Type here: the browser sets the multipart boundary itself.
+  const res = await fetch(`${config.apiBaseUrl}/api/documents`, { method: "POST", body: form });
+  if (!res.ok) throw new ApiError(res.status, await extractError(res, "/api/documents"));
+  return (await res.json()) as DocumentSummary;
+}
+
+export function listDocuments(): Promise<DocumentListResponse> {
+  return apiFetch<DocumentListResponse>("/api/documents");
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  const res = await fetch(`${config.apiBaseUrl}/api/documents/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError(res.status, await extractError(res, `/api/documents/${id}`));
+  // 204 No Content — nothing to parse.
+}
+
+// --- Feedback (learning loop) ---
+
+export type FeedbackRating = "positive" | "negative";
+
+export interface Feedback {
+  id: string;
+  workflow_id: string | null;
+  rating: FeedbackRating;
+  comment: string | null;
+  created_at: string;
+}
+
+export function submitFeedback(
+  workflowId: string,
+  rating: FeedbackRating,
+  comment?: string,
+): Promise<Feedback> {
+  return apiFetch<Feedback>(`/api/workflows/${workflowId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({ rating, comment: comment ?? null }),
+  });
+}
+
+export function listFeedback(workflowId: string): Promise<Feedback[]> {
+  return apiFetch<Feedback[]>(`/api/workflows/${workflowId}/feedback`);
+}

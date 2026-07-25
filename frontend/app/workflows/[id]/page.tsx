@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { FeedbackButtons } from "@/app/components/FeedbackButtons";
 import { RunsPanel } from "@/app/components/workflow/RunsPanel";
 import { WorkflowEditor } from "@/app/components/workflow/WorkflowEditor";
 import { type Workflow, getWorkflow } from "@/lib/api";
@@ -40,6 +41,7 @@ export default function WorkflowEditorPage() {
       {state.kind === "ready" && (
         <>
           <WorkflowEditor workflow={state.workflow} />
+          <FeedbackButtons workflowId={state.workflow.id} />
           <RunsPanel workflow={state.workflow} />
         </>
       )}
