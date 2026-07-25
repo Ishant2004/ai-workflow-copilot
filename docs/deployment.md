@@ -85,6 +85,26 @@ default `APP_ENV=production`, which also disables the interactive docs).
 5. IAM: task execution role (pull ECR, read secrets, write logs), task role (S3, etc.), and the GitHub OIDC deploy role.
 6. Create the ECS services referencing the task-def families; then pushes to `main` deploy automatically.
 
+## Render (all-in-one, no AWS / no local Docker)
+
+`render.yaml` (repo root) is a Render Blueprint that runs the entire stack — frontend,
+API, worker (Celery worker + embedded beat via `-B`), managed Postgres (pgvector), and
+Redis. Render builds the Dockerfiles in its own cloud, so nothing is built locally.
+
+Deploy: Render Dashboard → **New → Blueprint** → select this repo → Apply. Then:
+
+1. Set the **`ANTHROPIC_API_KEY`** secret on the `copilot-api` and `copilot-worker`
+   services (or set `LLM_PROVIDER=fake`/`TOOLS_PROVIDER=fake` to run without a key).
+2. Note the assigned URLs; if they differ from the defaults, update
+   `NEXT_PUBLIC_API_BASE_URL` (frontend) and `CORS_ORIGINS` (api), then redeploy.
+
+Notes: migrations run on API startup (`alembic upgrade head && uvicorn …`), so no
+separate migrate step; the app normalizes the `postgresql://` URL Render provides to
+the `postgresql+psycopg://` driver automatically (`app/config.py`); the worker is a
+paid instance (Render requirement) and must stay at 1 replica because `-B` embeds the
+scheduler. The same app runs unchanged on Railway, Fly.io, or a self-hosted PaaS
+(Coolify/Dokploy) via `docker-compose.prod.yml`.
+
 ## Lambda alternative
 
 The stateless **api** can instead run on **AWS Lambda** behind API Gateway/Lambda Function

@@ -1,0 +1,115 @@
+# Render blueprint — deploy the whole Workflow AI Copilot from the repo.
+# Setup: Render Dashboard → New → Blueprint → pick this repo. Render builds the
+# Dockerfiles in its cloud (no local Docker needed) and wires the services together.
+#
+# After the first deploy, confirm the two public URLs Render assigned and, if they
+# differ from the defaults below, update FRONTEND (NEXT_PUBLIC_API_BASE_URL) and
+# API (CORS_ORIGINS), then redeploy. Set ANTHROPIC_API_KEY in the dashboard (secret).
+#
+# See docs/deployment.md. Regions: change `region` if you prefer another.
+
+databases:
+  - name: copilot-db
+    databaseName: copilot
+    user: copilot
+    plan: free # 90-day free Postgres; bump to a paid plan for production
+    postgresMajorVersion: "16" # pgvector is enabled by the app's first migration
+    region: singapore
+
+services:
+  # --- Redis (Celery broker) ---
+  - type: redis
+    name: copilot-redis
+    plan: free
+    region: singapore
+    ipAllowList: [] # internal only (reachable from the other services)
+
+  # --- API (FastAPI) ---
+  - type: web
+    name: copilot-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore
+    plan: free # free web instances cold-start after idle; bump to starter for always-on
+    healthCheckPath: /health/ready
+    # Run migrations, then start the server on Render's assigned $PORT.
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${UVICORN_WORKERS:-2}"
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: RUN_ASYNC
+        value: "true"
+      - key: UVICORN_WORKERS
+        value: "2"
+      - key: LLM_PROVIDER
+        value: anthropic # set to "fake" to run without an API key
+      - key: TOOLS_PROVIDER
+        value: live
+      - key: EMBEDDING_PROVIDER
+        value: fake
+      - key: ANTHROPIC_API_KEY
+        sync: false # set this secret in the Render dashboard
+      - key: CORS_ORIGINS
+        value: https://copilot-frontend.onrender.com # ← update to the real frontend URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: copilot-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: copilot-redis
+          property: connectionString
+
+  # --- Worker (Celery worker + embedded beat scheduler via -B) ---
+  # Keep this at a single instance: -B runs the scheduler in-process, so scaling
+  # to >1 would double-fire scheduled workflows. Split beat into its own service
+  # (drop -B here, add a `celery ... beat` worker) if you need to scale workers.
+  - type: worker
+    name: copilot-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore
+    plan: starter # Render background workers require a paid instance type
+    dockerCommand: celery -A app.worker.celery_app worker -B --loglevel=info -Q copilot
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: TOOLS_PROVIDER
+        value: live
+      - key: EMBEDDING_PROVIDER
+        value: fake
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: copilot-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: copilot-redis
+          property: connectionString
+
+  # --- Frontend (Next.js standalone) ---
+  - type: web
+    name: copilot-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    region: singapore
+    plan: free
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Browser-facing, baked at build. Must be the API's public URL.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://copilot-api.onrender.com # ← update to the real API URL

@@ -175,6 +175,18 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_db_driver(cls, value: object) -> object:
+        """Accept the plain URLs managed hosts hand out (Render/Neon/Railway/Heroku)
+        and pin them to the psycopg driver our sync+async engines both use."""
+        if isinstance(value, str) and value:
+            if value.startswith("postgres://"):
+                value = "postgresql://" + value[len("postgres://") :]
+            if value.startswith("postgresql://"):
+                value = "postgresql+psycopg://" + value[len("postgresql://") :]
+        return value
+
     @property
     def is_production(self) -> bool:
         return self.app_env.lower() == "production"
