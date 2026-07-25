@@ -47,7 +47,7 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 | 17 | Multi-agent orchestration (research / summarizer / reviewer) | ✅ |
 | 18 | Feedback loop to improve workflow suggestions | ✅ |
 | 19 | Evaluation harness (quality, hallucination checks) | ✅ |
-| 20 | Deploy: Docker → AWS ECS/Lambda + CI/CD | ⬜ |
+| 20 | Deploy: Docker → AWS ECS/Lambda + CI/CD | ✅ |
 
 ---
 

@@ -122,6 +122,24 @@ Controls that keep that bounded:
 - **Future levers**: run independent agents in parallel where the pipeline allows,
   cache research for identical topics, and stream reviewer output for long digests.
 
+## Deployment & delivery (Step 20)
+
+How the topology maps onto the scaling strategy above (details in [deployment.md](deployment.md)):
+
+- **Stateless services scale horizontally** — api, worker, and frontend are independent
+  ECS Fargate services with their own `desiredCount`/autoscaling; the api sits behind an
+  ALB and the worker scales on queue depth, exactly the axes in the component table.
+- **Beat stays a singleton** — one `desiredCount: 1` scheduler, matching the "single +
+  failover" strategy; scaling it would double-fire schedules.
+- **Migrations are a one-off task**, run before services roll, so schema changes never
+  race across replicas as the api/worker scale out.
+- **Config & secrets are injected, not baked** — env vars + Secrets Manager per the
+  dev/prod separation principle; the same image runs in every environment.
+- **CI is the quality gate at scale** — lint, tests (incl. integration + pgvector), and
+  the eval/grounding gate must pass before an image can deploy, so regressions can't ship.
+- **Immutable, cache-friendly images** — multi-stage builds + GH Actions layer cache keep
+  deploys fast; ARM64/Graviton for cost. Rollback = redeploy a previous image tag.
+
 ## Evaluation harness (Step 19)
 
 The harness is how quality *stays* scalable as the system grows — it catches

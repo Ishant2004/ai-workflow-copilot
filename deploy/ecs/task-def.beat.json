@@ -1,0 +1,32 @@
+{
+  "family": "copilot-beat",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-task",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "containerDefinitions": [
+    {
+      "name": "beat",
+      "image": "PLACEHOLDER_REPLACED_BY_CI",
+      "essential": true,
+      "entryPoint": [],
+      "command": ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info"],
+      "environment": [{ "name": "APP_ENV", "value": "production" }],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:copilot/DATABASE_URL" },
+        { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:copilot/REDIS_URL" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/copilot/beat",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "beat"
+        }
+      }
+    }
+  ]
+}

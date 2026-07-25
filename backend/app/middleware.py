@@ -36,9 +36,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception:
             logger.exception("unhandled error on %s %s", request.method, request.url.path)
-            response = JSONResponse(
-                status_code=500, content={"detail": "Internal server error"}
-            )
+            response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
         finally:
             request_id_ctx.reset(token)
         response.headers[REQUEST_ID_HEADER] = request_id

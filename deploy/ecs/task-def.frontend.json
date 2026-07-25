@@ -1,0 +1,27 @@
+{
+  "family": "copilot-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-task",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "containerDefinitions": [
+    {
+      "name": "frontend",
+      "image": "PLACEHOLDER_REPLACED_BY_CI",
+      "essential": true,
+      "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
+      "environment": [{ "name": "NODE_ENV", "value": "production" }],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/copilot/frontend",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "frontend"
+        }
+      }
+    }
+  ]
+}

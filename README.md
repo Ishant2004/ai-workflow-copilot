@@ -47,13 +47,22 @@ See [docs/decisions.md](docs/decisions.md) for why each choice was made.
 - [Roadmap](docs/roadmap.md) — the step-by-step build plan (we commit after each step).
 - [Architecture](docs/architecture.md) — system design and data flow.
 - [Scalability](docs/scalability.md) — per-component scaling strategy (a design constraint, not an afterthought).
+- [Deployment](docs/deployment.md) — Docker images, AWS ECS/Fargate topology, and the CI/CD pipeline.
 - [Mind map](docs/mind-map.md) — how the concepts connect.
 - [Decision records](docs/decisions.md) — key technical choices and their rationale.
 
+## Deployment & CI/CD
+
+Both apps are containerized (`backend/Dockerfile`, `frontend/Dockerfile`). GitHub
+Actions runs the full quality gate on every push ([ci.yml](.github/workflows/ci.yml):
+lint, tests incl. pgvector integration, and the eval/grounding gate) and deploys to
+**AWS ECS on Fargate** on merges to `main` ([deploy.yml](.github/workflows/deploy.yml)
+→ ECR + ECS, migrations as a one-off task). See [docs/deployment.md](docs/deployment.md).
+
 ## Status
 
-🚧 Early development. Building incrementally — see the [roadmap](docs/roadmap.md)
-for what's done and what's next.
+✅ All 20 roadmap steps complete — see the [roadmap](docs/roadmap.md). The system runs
+end-to-end locally (`./scripts/dev-local.sh`) and ships via CI/CD to AWS.
 
 ## Getting started
 

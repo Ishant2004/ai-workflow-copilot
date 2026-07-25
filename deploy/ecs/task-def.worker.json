@@ -1,0 +1,33 @@
+{
+  "family": "copilot-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/copilot-ecs-task",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "containerDefinitions": [
+    {
+      "name": "worker",
+      "image": "PLACEHOLDER_REPLACED_BY_CI",
+      "essential": true,
+      "entryPoint": [],
+      "command": ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info", "-Q", "copilot"],
+      "environment": [{ "name": "APP_ENV", "value": "production" }],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:copilot/DATABASE_URL" },
+        { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:copilot/REDIS_URL" },
+        { "name": "ANTHROPIC_API_KEY", "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:copilot/ANTHROPIC_API_KEY" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/copilot/worker",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "worker"
+        }
+      }
+    }
+  ]
+}
