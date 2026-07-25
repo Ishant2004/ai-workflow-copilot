@@ -57,6 +57,25 @@ for what's done and what's next.
 
 ## Getting started
 
+### Run everything locally (one command)
+
+Brings up Postgres 17 (+pgvector), Redis, applies migrations, and starts the API,
+Celery worker, Beat scheduler, and the frontend — no Docker required. Runs with
+offline `fake` providers so it needs no API key.
+
+```bash
+./scripts/dev-local.sh      # UI: http://localhost:3000/workflows · API: http://localhost:8000/docs
+./scripts/dev-local-stop.sh # stop everything (add --redis to also stop Redis)
+```
+
+Prerequisites: the backend venv (`backend/.venv`), Homebrew `postgresql@17` +
+`pgvector`, `redis`, and `npm`. Runtime state and logs live under `~/.copilot/`.
+Ports/paths are overridable via `COPILOT_*` env vars (see the script header). For
+real Claude instead of the fakes, set `LLM_PROVIDER=anthropic`, `TOOLS_PROVIDER=live`,
+and `ANTHROPIC_API_KEY` in `backend/.env`.
+
+### Run the services individually
+
 **Backend** (FastAPI):
 
 ```bash
