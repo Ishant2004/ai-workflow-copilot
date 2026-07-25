@@ -14,6 +14,9 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Guarantee a public/ dir exists — Next's public/ is optional and git doesn't
+# track empty dirs, so it may be absent on a clean checkout (the runner COPYs it).
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
 # NEXT_PUBLIC_* is inlined at build time (it's browser-facing), so the public API
 # URL must be supplied here: docker build --build-arg NEXT_PUBLIC_API_BASE_URL=...
