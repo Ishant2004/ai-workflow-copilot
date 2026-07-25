@@ -12,7 +12,7 @@ import os
 import pytest
 from app.llm.schemas import PlannedStep, WorkflowPlan
 from app.models.enums import StepType, WorkflowStatus
-from app.schemas.workflow import StepIn
+from app.schemas.workflow import StepIn, WorkflowUpdate
 from app.services.workflows import workflow_from_plan
 
 pytestmark = pytest.mark.integration
@@ -60,9 +60,11 @@ async def _crud_round_trip(db_url: str) -> None:
 
             updated = await repo.update(
                 wf.id,
-                title="Renamed",
-                status=WorkflowStatus.active,
-                steps=[StepIn(type=StepType.notify_slack, name="Notify")],
+                WorkflowUpdate(
+                    title="Renamed",
+                    status=WorkflowStatus.active,
+                    steps=[StepIn(type=StepType.notify_slack, name="Notify")],
+                ),
             )
             assert updated is not None
             assert updated.title == "Renamed"
