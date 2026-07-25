@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { RunsPanel } from "@/app/components/workflow/RunsPanel";
 import { WorkflowEditor } from "@/app/components/workflow/WorkflowEditor";
 import { type Workflow, getWorkflow } from "@/lib/api";
 
@@ -36,7 +37,12 @@ export default function WorkflowEditorPage() {
       {state.kind === "error" && (
         <p className="text-red-600 dark:text-red-300">{state.message}</p>
       )}
-      {state.kind === "ready" && <WorkflowEditor workflow={state.workflow} />}
+      {state.kind === "ready" && (
+        <>
+          <WorkflowEditor workflow={state.workflow} />
+          <RunsPanel workflow={state.workflow} />
+        </>
+      )}
     </main>
   );
 }

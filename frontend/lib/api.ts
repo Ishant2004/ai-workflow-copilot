@@ -143,3 +143,70 @@ export function updateWorkflow(id: string, patch: WorkflowPatch): Promise<Workfl
     body: JSON.stringify(patch),
   });
 }
+
+// --- Runs & the human-in-the-loop review gate ---
+
+export type RunStatus =
+  | "pending"
+  | "running"
+  | "awaiting_review"
+  | "succeeded"
+  | "failed"
+  | "rejected";
+
+export type StepResultStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
+
+export interface StepResult {
+  id: string;
+  step_id: string;
+  status: StepResultStatus;
+  output: Record<string, unknown> | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface Run {
+  id: string;
+  workflow_id: string;
+  status: RunStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  created_at: string;
+  step_results: StepResult[];
+}
+
+/** Execute a workflow. Returns the run (completed/awaiting-review inline, or pending if async). */
+export function runWorkflow(id: string): Promise<Run> {
+  return apiFetch<Run>(`/api/workflows/${id}/runs`, { method: "POST" });
+}
+
+export function listRuns(id: string): Promise<Run[]> {
+  return apiFetch<Run[]>(`/api/workflows/${id}/runs`);
+}
+
+export function getRun(runId: string): Promise<Run> {
+  return apiFetch<Run>(`/api/runs/${runId}`);
+}
+
+/** Edit a step's output during review (before the side-effecting step runs). */
+export function editStepResult(
+  runId: string,
+  stepResultId: string,
+  output: Record<string, unknown>,
+): Promise<Run> {
+  return apiFetch<Run>(`/api/runs/${runId}/steps/${stepResultId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ output }),
+  });
+}
+
+export function approveRun(runId: string): Promise<Run> {
+  return apiFetch<Run>(`/api/runs/${runId}/approve`, { method: "POST" });
+}
+
+export function rejectRun(runId: string): Promise<Run> {
+  return apiFetch<Run>(`/api/runs/${runId}/reject`, { method: "POST" });
+}
