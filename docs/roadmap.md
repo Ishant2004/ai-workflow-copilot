@@ -47,7 +47,21 @@ Legend: ✅ done · 🔨 in progress · ⬜ not started
 | 17 | Multi-agent orchestration (research / summarizer / reviewer) | ✅ |
 | 18 | Feedback loop to improve workflow suggestions | ✅ |
 | 19 | Evaluation harness (quality, hallucination checks) | ✅ |
-| 20 | Deploy: Docker → AWS ECS/Lambda + CI/CD | ✅ |
+| 20 | Deploy: containerized + CI/CD (shipped free on Render — see Phase 4) | ✅ |
+
+## Phase 4 — Post-roadmap enhancements
+
+Hardening the app into something usable end-to-end and deployable for free.
+
+| # | Enhancement | Status |
+|---|------|--------|
+| 21 | Real providers: Tavily web search + OpenAI embeddings (behind the fake interfaces) | ✅ |
+| 22 | Real scrape tool (fetch URL → extract text, SSRF-guarded) | ✅ |
+| 23 | Frontend: run workflows + run history + review gate UI | ✅ |
+| 24 | Frontend: RAG document upload UI + 👍/👎 feedback UI | ✅ |
+| 25 | Free deploy to Render (blueprint) + DB-URL normalization for managed Postgres | ✅ |
+| 26 | Worker-free cron: `/api/scheduler/tick` + external free scheduler (cron-job.org) | ✅ |
+| — | S3 file storage (raw uploads to object storage) | ⬜ optional |
 
 ---
 

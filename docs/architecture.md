@@ -19,8 +19,12 @@ flowchart TD
     API --> DB[(PostgreSQL + pgvector)]
     WORKER --> DB
     TOOLS -->|digest| OUT[Slack / Email]
-    API --> S3[(S3: files & artifacts)]
 ```
+
+> The Redis + Celery worker is the **optional async path** (used by `docker-compose` /
+> self-hosting). On the free Render deployment, runs execute **inline** in the API and
+> scheduling is driven by an external cron hitting `/api/scheduler/tick` — see
+> [how-it-works.md](how-it-works.md).
 
 ## Core concepts
 
@@ -48,7 +52,8 @@ flowchart TD
 - **LLM plans, code executes.** The model chooses tools and structures data; tool
   execution and side effects live in deterministic backend code.
 - **Everything is a Run.** All execution is recorded for history, retries, and eval.
-- **Incremental infra.** Start with Docker Compose locally; grow toward AWS.
+- **Incremental infra.** Runs locally with zero setup, deploys free on Render, and the
+  same containers scale on any host (see [deployment.md](deployment.md)).
 
 ## Component map
 
@@ -61,5 +66,5 @@ flowchart TD
 | Worker         | Async step execution (Celery), retries, scheduling          |
 | Tools          | Web search, scraping, summarization, notifications          |
 | Postgres       | Workflows, steps, runs, embeddings (pgvector)               |
-| Redis          | Queue broker + result backend                               |
-| S3             | Uploaded docs and generated artifacts                       |
+| Redis          | Queue broker + result backend (optional async path)         |
+| Object storage | Uploaded docs / artifacts — optional, S3-compatible (not wired yet) |

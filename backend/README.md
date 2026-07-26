@@ -326,7 +326,7 @@ Config layers load lowest-priority first:
 ```
 .env                 # shared / local defaults
 .env.<APP_ENV>       # per-environment overrides (.env.development committed; prod injected)
-real env vars        # highest priority (Docker/ECS/CI)
+real env vars        # highest priority (Docker/host/CI)
 ```
 
 `APP_ENV` (`development` | `staging` | `production`) picks the overlay. In

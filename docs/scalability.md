@@ -12,7 +12,7 @@ strategy for each. Updated as components land.
 2. **Push slow work to the queue.** HTTP requests stay fast; LLM calls, scraping, and
    summarization run async via Celery workers that scale independently of the API.
 3. **Config via environment.** No hardcoded hosts/secrets — 12-factor config so the
-   same image runs from laptop to ECS with different replica counts.
+   same image runs from laptop to any host with different replica counts.
 4. **Bounded resource use.** Timeouts, retries with backoff, and rate limits on every
    external call (LLM, search, scrape) so one slow dependency can't exhaust the pool.
 5. **Observability first.** Structured logs, request IDs, and per-step run records so
@@ -31,8 +31,8 @@ strategy for each. Updated as components land.
 | **Orchestrator/Workers (Celery)** | Horizontal | Scale worker replicas by queue depth; separate queues per step type; idempotent tasks | Long tasks starving queue |
 | **Postgres + pgvector** | Vertical + read replicas | Connection pooling (PgBouncer), indexes, read replicas for heavy reads; partition runs by time | Write throughput, vector index size |
 | **Redis (broker/cache)** | Vertical + cluster | Separate broker vs cache; eviction policy; Redis Cluster if needed | Memory, single-thread hotspots |
-| **S3 (storage)** | Effectively unlimited | Offload large artifacts/uploads; presigned URLs; lifecycle rules | Egress cost |
-| **Scheduler (Celery Beat)** | Single + failover | One active scheduler; distributed lock to prevent duplicate triggers | Single point — needs HA |
+| **Object storage** _(optional, not wired yet)_ | Effectively unlimited | S3-compatible (R2/B2/S3) for large uploads/artifacts; presigned URLs; lifecycle rules | Egress cost |
+| **Scheduler** | Stateless (current) / singleton (Beat) | Worker-free: external cron → stateless `/scheduler/tick` with a fire-once window; or one Celery Beat with a distributed lock | Missed/duplicate fires if window ≠ interval |
 
 ## Cross-cutting concerns
 
@@ -134,23 +134,26 @@ Controls that keep that bounded:
 - **Future levers**: run independent agents in parallel where the pipeline allows,
   cache research for identical topics, and stream reviewer output for long digests.
 
-## Deployment & delivery (Step 20)
+## Deployment & delivery
 
-How the topology maps onto the scaling strategy above (details in [deployment.md](deployment.md)):
+How the topology maps onto the scaling strategy above (details in [deployment.md](deployment.md)).
+The app deploys free on **Render** today, but the design is platform-agnostic — the same
+containers scale on any host:
 
-- **Stateless services scale horizontally** — api, worker, and frontend are independent
-  ECS Fargate services with their own `desiredCount`/autoscaling; the api sits behind an
-  ALB and the worker scales on queue depth, exactly the axes in the component table.
-- **Beat stays a singleton** — one `desiredCount: 1` scheduler, matching the "single +
-  failover" strategy; scaling it would double-fire schedules.
-- **Migrations are a one-off task**, run before services roll, so schema changes never
-  race across replicas as the api/worker scale out.
-- **Config & secrets are injected, not baked** — env vars + Secrets Manager per the
+- **Stateless services scale horizontally** — api and frontend are independent web
+  services; the api can run behind a load balancer with multiple replicas. On the free
+  tier they run single-instance with runs executing inline.
+- **Config & secrets are injected, not baked** — env vars (Render/host secrets) per the
   dev/prod separation principle; the same image runs in every environment.
-- **CI is the quality gate at scale** — lint, tests (incl. integration + pgvector), and
-  the eval/grounding gate must pass before an image can deploy, so regressions can't ship.
-- **Immutable, cache-friendly images** — multi-stage builds + GH Actions layer cache keep
-  deploys fast; ARM64/Graviton for cost. Rollback = redeploy a previous image tag.
+- **Migrations run on API start** (`alembic upgrade head`), so a deploy always matches its
+  schema. (For a multi-replica scale-out, move this to a one-off pre-deploy job to avoid
+  concurrent migration races.)
+- **Scheduling scales without a singleton scheduler** — an external cron hits a stateless
+  tick endpoint; the "fire exactly once" window replaces a dedicated Beat process.
+- **Optional async path** — enabling Celery worker + Redis lets long runs execute off the
+  request thread and scale by queue depth (worker replicas); beat stays a singleton.
+- **CI is the quality gate at scale** — lint, tests (incl. integration + pgvector), and the
+  eval/grounding gate must pass on every push, so regressions can't ship.
 
 ## Evaluation harness (Step 19)
 

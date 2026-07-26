@@ -30,7 +30,8 @@ locally from early on.
 
 **Why:** Keeps local dev close to production, avoids a painful migration later
 (e.g. SQLite → Postgres), and makes pgvector and the Redis-backed queue available
-when we need them. Matches the eventual AWS/Docker deployment goal.
+when we need them. The same containers deploy anywhere (Render today; see
+[deployment.md](deployment.md)).
 
 ## ADR-004 — Vector DB: pgvector
 

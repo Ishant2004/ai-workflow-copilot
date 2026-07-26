@@ -36,7 +36,8 @@ mindmap
       Feedback loop
     Ops
       Docker
-      AWS ECS/Lambda
+      Render (free) / any host
+      Worker-free cron
       Logging & observability
       Evaluation
 ```

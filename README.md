@@ -26,9 +26,9 @@ feedback.
 | Backend      | FastAPI (Python)                    |
 | LLM          | Anthropic Claude                    |
 | Vector DB    | pgvector (Postgres extension)       |
-| Queue        | Redis + Celery                      |
-| Storage      | PostgreSQL + S3                     |
-| Deployment   | Docker → AWS ECS / Lambda           |
+| Queue        | Redis + Celery (optional async path) |
+| Storage      | PostgreSQL (+ pgvector)             |
+| Deployment   | Docker → Render (free tier)         |
 
 See [docs/decisions.md](docs/decisions.md) for why each choice was made.
 
@@ -44,25 +44,66 @@ See [docs/decisions.md](docs/decisions.md) for why each choice was made.
 
 ## Documentation
 
+- [How it works](docs/how-it-works.md) — the full end-to-end flow, and how it runs in production.
 - [Roadmap](docs/roadmap.md) — the step-by-step build plan (we commit after each step).
 - [Architecture](docs/architecture.md) — system design and data flow.
 - [Scalability](docs/scalability.md) — per-component scaling strategy (a design constraint, not an afterthought).
-- [Deployment](docs/deployment.md) — Docker images, AWS ECS/Fargate topology, and the CI/CD pipeline.
+- [Deployment](docs/deployment.md) — free Render deploy, container images, scheduling, and CI.
 - [Mind map](docs/mind-map.md) — how the concepts connect.
 - [Decision records](docs/decisions.md) — key technical choices and their rationale.
 
 ## Deployment & CI/CD
 
-Both apps are containerized (`backend/Dockerfile`, `frontend/Dockerfile`). GitHub
-Actions runs the full quality gate on every push ([ci.yml](.github/workflows/ci.yml):
-lint, tests incl. pgvector integration, and the eval/grounding gate) and deploys to
-**AWS ECS on Fargate** on merges to `main` ([deploy.yml](.github/workflows/deploy.yml)
-→ ECR + ECS, migrations as a one-off task). See [docs/deployment.md](docs/deployment.md).
+Both apps are containerized (`backend/Dockerfile`, `frontend/Dockerfile`) and deploy
+**free on Render** from one Blueprint ([render.yaml](render.yaml)) — frontend + API +
+managed Postgres, with runs executing inline and cron handled by a free external
+scheduler hitting `/api/scheduler/tick`. GitHub Actions ([ci.yml](.github/workflows/ci.yml))
+runs the quality gate on every push (lint, tests incl. pgvector integration, eval/grounding);
+Render auto-deploys on merge to `main`. See [docs/deployment.md](docs/deployment.md) and
+the full runtime walkthrough in [docs/how-it-works.md](docs/how-it-works.md).
+
+## What's built
+
+**Backend** — plan generation, workflow CRUD + visual step editing, typed tool
+execution, human-in-the-loop review gate, RAG (upload → pgvector → retrieve),
+multi-agent orchestration (researcher/summarizer/reviewer), feedback learning loop,
+retries + structured logging + uniform errors, and an evaluation harness (quality +
+grounding gate).
+
+**Frontend** — describe a task → preview plan → create; list workflows; visual editor
+(reorder/edit steps, set status + cron); **run workflows + view run history**;
+**human review** (edit output → approve/reject); **document upload** (RAG);
+**👍/👎 feedback**.
+
+**Every external provider sits behind an interface with an offline fake**, so the whole
+app runs with zero API keys. Flip to the real version by setting one or two env vars:
+
+| Capability | Offline default | Real version — set |
+|---|---|---|
+| Plan generation | fake planner | `LLM_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` |
+| Summarize / multi-agent | deterministic fake | `TOOLS_PROVIDER=live` + `ANTHROPIC_API_KEY` |
+| Web search | simulated results | `SEARCH_PROVIDER=tavily` + `TAVILY_API_KEY` |
+| Scrape (URL → text) | simulated | `TOOLS_PROVIDER=live` (real fetch, **no key**) |
+| RAG embeddings | hashing embedder | `EMBEDDING_PROVIDER=openai` + `OPENAI_API_KEY` |
+| Slack delivery | simulated | `SLACK_WEBHOOK_URL` |
+| Email delivery | simulated | `SMTP_HOST` + `EMAIL_FROM` (+ `SMTP_USER`/`SMTP_PASSWORD`) |
+| Async run queue | inline execution | `RUN_ASYNC=true` + Celery worker + Redis |
+| Cron scheduling | — | `SCHEDULER_TOKEN` + an external cron (or Celery Beat) |
+
+The `live`/`tavily`/`openai` real tools all fall back to their fake if the key is
+missing, so nothing breaks — you just get the simulated result. See
+[backend/.env.example](backend/.env.example) for every setting.
+
+**Not built (optional):** S3 file storage — uploads are chunked into Postgres, but the
+raw file isn't archived to object storage. Everything else is implemented.
 
 ## Status
 
-✅ All 20 roadmap steps complete — see the [roadmap](docs/roadmap.md). The system runs
-end-to-end locally (`./scripts/dev-local.sh`) and ships via CI/CD to AWS.
+✅ All 20 [roadmap](docs/roadmap.md) steps complete, plus post-roadmap enhancements:
+real providers (Tavily search, OpenAI embeddings), a real scrape tool, the full
+run/review/RAG/feedback UI, and worker-free cron scheduling. The system runs
+end-to-end locally (`./scripts/dev-local.sh`), ships to **AWS** via CI/CD, and deploys
+free to **Render** ([render.yaml](render.yaml)) — see [docs/deployment.md](docs/deployment.md).
 
 ## Getting started
 
